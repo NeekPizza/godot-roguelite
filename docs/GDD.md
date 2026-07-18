@@ -80,6 +80,17 @@ newcomer, rather than trading one against the other.
 | Pickup radius | 60 px |
 | Contact i-frames | 0.5 s after taking damage |
 
+### The world
+
+A **finite 3200×1800 world with hard walls** — about 2.5× the 1280×720 screen on
+each axis — viewed through a camera that smoothly follows the player. Roomy
+enough to run and kite, never unbounded.
+
+Finite is a deliberate constraint, not a shortcut: it lets enemy spawn points be
+**absolute world coordinates** instead of a ring around the player, so everyone
+on a seed gets byte-identical spawn *positions*, not just identical spawn
+*timings*. See section 9.
+
 - Movement: WASD / arrows / left stick. 8-directional, no acceleration ramp —
   crisp and responsive beats realistic.
 - The player is a **neon triangle** that points in the movement direction.

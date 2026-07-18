@@ -35,6 +35,18 @@ const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 func _ready() -> void:
 	add_to_group("player")
 	position = Arena.center()
+	_setup_camera()
+
+
+## Clamp the camera to the world rect so the view never drifts past the walls
+## into empty space. Driven from Arena.RECT rather than hardcoded in the scene,
+## so resizing the world stays a one-line change.
+func _setup_camera() -> void:
+	var camera: Camera2D = $Camera
+	camera.limit_left = int(Arena.RECT.position.x)
+	camera.limit_top = int(Arena.RECT.position.y)
+	camera.limit_right = int(Arena.RECT.end.x)
+	camera.limit_bottom = int(Arena.RECT.end.y)
 
 
 func _physics_process(delta: float) -> void:

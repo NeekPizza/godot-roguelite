@@ -1,16 +1,17 @@
 class_name Arena
 extends RefCounted
 
-## The playfield is a fixed, fully-visible rectangle — no scrolling camera.
+## The playfield is a large FINITE world with hard walls, viewed through a
+## camera that follows the player. Roughly 2.5x the 1280x720 screen on each
+## axis, so there is room to run without the world ever becoming unbounded.
 ##
-## Why bounded rather than the genre-typical infinite field: with a fixed arena,
-## enemy spawn points are absolute rather than player-relative, so two players
-## on the same daily seed get byte-identical spawn positions, not merely
-## identical spawn *timings*. That makes the determinism contract in GDD
-## section 9 hold literally. It also means the whole battlefield is always on
-## screen, which suits flat neon geometry.
+## Why finite rather than the genre-typical infinite field: a fixed world lets
+## enemy spawn points be absolute world coordinates rather than player-relative,
+## so two players on the same daily seed get byte-identical spawn positions —
+## not merely identical spawn *timings*. That makes the determinism contract in
+## GDD section 9 hold literally, and it is non-negotiable.
 
-const RECT := Rect2(0.0, 0.0, 1280.0, 720.0)
+const RECT := Rect2(0.0, 0.0, 3200.0, 1800.0)
 
 ## Enemies spawn this far outside the arena edge and walk inward, so nothing
 ## ever materialises on top of the player.
