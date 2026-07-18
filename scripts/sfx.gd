@@ -38,12 +38,23 @@ func _ready() -> void:
 		_voices.append(voice)
 
 
-## See music.gd: drop stream references before the engine's exit-time resource
-## check runs, otherwise shutdown reports leaked instances.
-func _exit_tree() -> void:
+## Stop every voice and drop its stream reference. Used by the clean-quit path
+## and by Phase 5's mute/settings.
+##
+## Note: this does NOT silence Godot's "N resources still in use at exit"
+## message. That is reported for the AudioStreamWAVs held by this script's
+## const preloads and by the engine's resource cache, and it scales with the
+## number of audio resources loaded — it is a shutdown-order artifact, not a
+## runtime leak. Verified: the count is identical whether streams are stopped
+## first or not.
+func stop_all() -> void:
 	for voice in _voices:
 		voice.stop()
 		voice.stream = null
+
+
+func _exit_tree() -> void:
+	stop_all()
 
 
 func _process(delta: float) -> void:

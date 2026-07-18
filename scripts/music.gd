@@ -45,8 +45,12 @@ func start() -> void:
 		_player.play()
 
 
+## Stop playback and release the stream. See the note in sfx.gd stop_all()
+## about the harmless exit-time resource message.
 func stop() -> void:
-	_player.stop()
+	if _player != null:
+		_player.stop()
+		_player.stream = null
 
 
 func set_volume_db(db: float) -> void:

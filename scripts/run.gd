@@ -166,6 +166,16 @@ func _process(delta: float) -> void:
 			_capture_screenshot(path)
 
 
+## Release audio, then quit. Stopping playback first is correct hygiene and is
+## the path Phase 5's menu quit will reuse. It does not suppress the exit-time
+## "resources still in use" message — see the note in sfx.gd stop_all().
+func _quit_cleanly() -> void:
+	Music.stop()
+	Sfx.stop_all()
+	await get_tree().process_frame
+	get_tree().quit()
+
+
 func _capture_screenshot(path: String) -> void:
 	await RenderingServer.frame_post_draw
 	var error := get_viewport().get_texture().get_image().save_png(path)
@@ -378,7 +388,7 @@ func _end_run() -> void:
 	_gameover_layer.show()
 	Sfx.play("run_over")
 	if _quit_on_end:
-		get_tree().quit.call_deferred()
+		_quit_cleanly.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
 	print("[run] over survived=%s score=%d kills=%d xp=%d level=%d" % [_survived, _score(), _kills, _xp_collected, _level])
 

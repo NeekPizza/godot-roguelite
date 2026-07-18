@@ -18,7 +18,7 @@ upgrade cards, which makes automated checks impossible otherwise.
 | `--run-seconds=N` | Shortens the run to N seconds. The difficulty ramp is **scaled**, not truncated, so a short run still walks the whole curve from tier 1 to tier 5. |
 | `--auto-pick` | Auto-selects card 0 at every level-up. Without it, a headless run pauses forever at the first level-up waiting for input that will never arrive. |
 | `--godmode` | Player takes no damage. The only way to exercise the late-tier enemy types unattended — an idle run dies in tier 1-2 and never sees Tanks, Shooters or Splitters spawn. |
-| `--quit-on-end` | Calls `get_tree().quit()` when the run finishes, for a clean engine shutdown. Prefer this over `--quit-after` in CI: a forced frame-kill reports spurious "resources still in use at exit" errors that are shutdown artifacts, not real leaks. |
+| `--quit-on-end` | Releases audio then calls `get_tree().quit()` when the run finishes. Prefer this over `--quit-after` in CI — it exits on a run boundary rather than mid-frame. |
 | `--screenshot=PATH@N` | Saves a PNG of the framebuffer N seconds in. Requires a window (not `--headless`, which has no renderer). |
 
 Examples:
@@ -63,3 +63,22 @@ A script that `preload()`s a freshly added asset fails on the first
 metadata yet, so the preload cannot resolve and the script fails to compile.
 Run `--import` a second time and it resolves. If an autoload fails to compile
 this way, the game still boots but that autoload is silently missing.
+
+## Known non-issue: "resources still in use at exit"
+
+A run that has loaded audio prints, at shutdown:
+
+```
+WARNING: N ObjectDB instances were leaked at exit
+ERROR: N resources still in use at exit
+```
+
+This is a **shutdown-order artifact, not a runtime leak.** The named resources
+are the `AudioStreamWAV`s held by `sfx.gd`'s const preloads and the music
+`AudioStreamOggVorbis`, which the engine's resource cache still references when
+it runs its exit check — autoload teardown happens afterwards. The count scales
+with how many audio resources are loaded, and is unchanged whether or not
+playback is stopped first (verified). Nothing accumulates while the game runs.
+
+Do not "fix" this by removing the preloads; it costs runtime performance to
+solve a message that appears only as the process exits.
