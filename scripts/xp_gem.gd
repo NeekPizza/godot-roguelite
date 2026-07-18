@@ -1,9 +1,9 @@
 extends Area2D
 
-## XP gem. Persists for the whole run — no despawn timer (GDD section 6).
+## XP gem. Persists for the whole run — no despawn timer, so uncollected XP on
+## the field is a risk/reward decision rather than a punishment for looking
+## away (GDD section 6). Values live in balance.gd.
 
-const RADIUS := 5.0
-const ATTRACT_SPEED := 420.0
 const COLOR := Color(1.0, 0.92, 0.25)
 
 var value := 1
@@ -20,13 +20,15 @@ func attract_to(target: Node2D) -> void:
 
 func _physics_process(delta: float) -> void:
 	if _target != null and is_instance_valid(_target):
-		position += (_target.position - position).normalized() * ATTRACT_SPEED * delta
+		position += (_target.position - position).normalized() \
+			* Balance.GEM_ATTRACT_SPEED * delta
 
 
 func _draw() -> void:
+	var radius := Balance.GEM_RADIUS
 	var points := PackedVector2Array([
-		Vector2(0.0, -RADIUS), Vector2(RADIUS, 0.0),
-		Vector2(0.0, RADIUS), Vector2(-RADIUS, 0.0),
+		Vector2(0.0, -radius), Vector2(radius, 0.0),
+		Vector2(0.0, radius), Vector2(-radius, 0.0),
 	])
 	draw_colored_polygon(points, COLOR)
-	draw_circle(Vector2.ZERO, RADIUS * 2.2, Color(COLOR, 0.12))
+	draw_circle(Vector2.ZERO, radius * 2.2, Color(COLOR, 0.12))

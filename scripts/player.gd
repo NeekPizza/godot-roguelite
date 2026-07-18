@@ -2,48 +2,38 @@ extends Area2D
 
 ## The player: a neon triangle that moves and auto-fires. All gameplay logic is
 ## in _physics_process — required by the determinism contract (GDD section 9).
+##
+## Stat VALUES live in balance.gd; this file only implements behaviour.
 
 signal died
 signal damaged(current_hp: float)
 signal xp_collected(amount: int)
 
-const RADIUS := 14.0
-const IFRAME_DURATION := 0.5
-const SPREAD_RADIANS := 0.18
-
-## Hard ceiling on pickup radius, enforced regardless of how upgrades stack.
-##
-## Without it, compounding Magnetism grows the radius geometrically until it
-## covers the world and XP collection stops being a decision — gems just fall
-## in. 200px is a quarter of the screen height and ~6% of the world's shorter
-## axis, so collecting still means going and getting it.
-const MAX_PICKUP_RADIUS := 200.0
-
 const COLOR_BODY := Color(0.25, 0.95, 1.0)
 const COLOR_HURT := Color(1.0, 0.35, 0.45)
 
-# --- Stat block. Upgrades mutate these directly (see upgrades.gd). ---
-var max_hp := 100.0
-var hp := 100.0
-var move_speed := 220.0
+const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
+
+# --- Stat block. Upgrades mutate these by name (see upgrades.gd). ---
+var max_hp := Balance.PLAYER_MAX_HP
+var hp := Balance.PLAYER_MAX_HP
+var move_speed := Balance.PLAYER_MOVE_SPEED
 # Setter-enforced so the ceiling holds no matter what writes to it — a future
 # upgrade, pickup, or debug tweak cannot route around it.
-var pickup_radius := 60.0:
+var pickup_radius := Balance.PLAYER_PICKUP_RADIUS:
 	set(value):
-		pickup_radius = minf(value, MAX_PICKUP_RADIUS)
-var damage := 10.0
-var fire_rate := 2.0
-var projectile_speed := Projectile.BASE_SPEED
-var projectile_count := 1
-var pierce := 0
+		pickup_radius = minf(value, Balance.PLAYER_PICKUP_RADIUS_MAX)
+var damage := Balance.WEAPON_DAMAGE
+var fire_rate := Balance.WEAPON_FIRE_RATE
+var projectile_speed := Balance.PROJECTILE_SPEED
+var projectile_count := Balance.WEAPON_PROJECTILE_COUNT
+var pierce := Balance.WEAPON_PIERCE
 
 var projectile_parent: Node2D
 var godmode := false  # test hook only; see docs/TESTING.md
 var _facing := Vector2.UP
 var _iframes := 0.0
 var _fire_cooldown := 0.0
-
-const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 
 
 func _ready() -> void:
@@ -53,14 +43,15 @@ func _ready() -> void:
 
 
 ## Clamp the camera to the world rect so the view never drifts past the walls
-## into empty space. Driven from Arena.RECT rather than hardcoded in the scene,
-## so resizing the world stays a one-line change.
+## into empty space. Driven from the world size, so resizing stays a one-line
+## change in balance.gd.
 func _setup_camera() -> void:
 	var camera: Camera2D = $Camera
-	camera.limit_left = int(Arena.RECT.position.x)
-	camera.limit_top = int(Arena.RECT.position.y)
-	camera.limit_right = int(Arena.RECT.end.x)
-	camera.limit_bottom = int(Arena.RECT.end.y)
+	var bounds := Arena.rect()
+	camera.limit_left = int(bounds.position.x)
+	camera.limit_top = int(bounds.position.y)
+	camera.limit_right = int(bounds.end.x)
+	camera.limit_bottom = int(bounds.end.y)
 
 
 func _physics_process(delta: float) -> void:
@@ -77,7 +68,7 @@ func _move(delta: float) -> void:
 	if direction.length_squared() > 0.0:
 		_facing = direction.normalized()
 		position += _facing * move_speed * delta
-		position = Arena.clamp_position(position, RADIUS)
+		position = Arena.clamp_position(position, Balance.PLAYER_RADIUS)
 
 
 func _fire(delta: float) -> void:
@@ -94,13 +85,13 @@ func _fire(delta: float) -> void:
 
 	# Spread the volley symmetrically around the aim vector.
 	for i in projectile_count:
-		var offset := (float(i) - float(projectile_count - 1) * 0.5) * SPREAD_RADIANS
+		var offset := (float(i) - float(projectile_count - 1) * 0.5) * Balance.WEAPON_SPREAD_RADIANS
 		var projectile := PROJECTILE_SCENE.instantiate()
 		projectile.position = position
 		projectile.setup(aim.rotated(offset), damage, pierce, projectile_speed)
 		projectile_parent.add_child(projectile)
 
-	Sfx.play("shoot", -12.0)
+	Sfx.play("shoot")
 
 
 func _nearest_enemy() -> Node2D:
@@ -111,18 +102,19 @@ func _nearest_enemy() -> Node2D:
 		if distance_squared < nearest_distance_squared:
 			nearest_distance_squared = distance_squared
 			nearest = enemy
-	if nearest_distance_squared > Projectile.MAX_RANGE * Projectile.MAX_RANGE:
+	if nearest_distance_squared > Balance.PROJECTILE_RANGE * Balance.PROJECTILE_RANGE:
 		return null
 	return nearest
 
 
 func _collect_pickups() -> void:
 	var radius_squared := pickup_radius * pickup_radius
+	var body_squared := Balance.PLAYER_RADIUS * Balance.PLAYER_RADIUS
 	for gem in get_tree().get_nodes_in_group("xp_gem"):
 		var distance_squared: float = position.distance_squared_to(gem.position)
 		if distance_squared <= radius_squared:
 			gem.attract_to(self)
-		if distance_squared <= RADIUS * RADIUS:
+		if distance_squared <= body_squared:
 			xp_collected.emit(gem.value)
 			gem.queue_free()
 
@@ -142,7 +134,7 @@ func take_damage(amount: float) -> void:
 	if _iframes > 0.0 or hp <= 0.0:
 		return  # Already dead: never emit `died` twice.
 	hp -= amount
-	_iframes = IFRAME_DURATION
+	_iframes = Balance.PLAYER_IFRAMES
 	Sfx.play("player_hurt")
 	damaged.emit(hp)
 	if hp <= 0.0:
@@ -156,12 +148,13 @@ func heal(amount: float) -> void:
 
 
 func _draw() -> void:
+	var radius := Balance.PLAYER_RADIUS
 	var color := COLOR_HURT if _iframes > 0.0 else COLOR_BODY
 	var angle := _facing.angle() + PI * 0.5
 	var points := PackedVector2Array([
-		Vector2(0.0, -RADIUS).rotated(angle),
-		Vector2(-RADIUS * 0.8, RADIUS * 0.7).rotated(angle),
-		Vector2(RADIUS * 0.8, RADIUS * 0.7).rotated(angle),
+		Vector2(0.0, -radius).rotated(angle),
+		Vector2(-radius * 0.8, radius * 0.7).rotated(angle),
+		Vector2(radius * 0.8, radius * 0.7).rotated(angle),
 	])
 	draw_colored_polygon(points, color)
 	# Faked glow: GL Compatibility has no cheap post-process bloom, so we ring

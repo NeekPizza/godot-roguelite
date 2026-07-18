@@ -10,13 +10,6 @@ extends Node2D
 ## nodes. Hundreds of enemies die per run, and spawning a node per burst would
 ## churn the scene tree for something purely decorative.
 
-const GRAVITY := 220.0
-const DRAG := 2.4
-const MAX_SPARKS := 600
-
-const SHAKE_DECAY := 9.0
-const SHAKE_MAX := 14.0
-
 var camera: Camera2D
 
 var _rng := GameSeed.make_fx_rng()
@@ -26,7 +19,7 @@ var _shake := 0.0
 
 func burst(at: Vector2, color: Color, count: int, speed: float = 150.0) -> void:
 	for i in count:
-		if _sparks.size() >= MAX_SPARKS:
+		if _sparks.size() >= Balance.PARTICLE_MAX:
 			return
 		var angle := _rng.randf() * TAU
 		var magnitude := speed * _rng.randf_range(0.35, 1.0)
@@ -41,7 +34,7 @@ func burst(at: Vector2, color: Color, count: int, speed: float = 150.0) -> void:
 
 
 func add_shake(amount: float) -> void:
-	_shake = minf(SHAKE_MAX, _shake + amount)
+	_shake = minf(Balance.SHAKE_MAX, _shake + amount)
 
 
 func _process(delta: float) -> void:
@@ -52,12 +45,12 @@ func _process(delta: float) -> void:
 		if spark["life"] <= 0.0:
 			_sparks.remove_at(index)
 		else:
-			spark["vel"] += Vector2(0.0, GRAVITY) * delta
-			spark["vel"] = spark["vel"].lerp(Vector2.ZERO, minf(1.0, DRAG * delta))
+			spark["vel"] += Vector2(0.0, Balance.PARTICLE_GRAVITY) * delta
+			spark["vel"] = spark["vel"].lerp(Vector2.ZERO, minf(1.0, Balance.PARTICLE_DRAG * delta))
 			spark["pos"] += spark["vel"] * delta
 		index -= 1
 
-	_shake = maxf(0.0, _shake - SHAKE_DECAY * delta)
+	_shake = maxf(0.0, _shake - Balance.SHAKE_DECAY * delta)
 	if camera != null and is_instance_valid(camera):
 		if _shake > 0.01:
 			camera.offset = Vector2(

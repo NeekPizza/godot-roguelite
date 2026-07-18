@@ -83,3 +83,19 @@ playback is stopped first (verified). Nothing accumulates while the game runs.
 
 Do not "fix" this by removing the preloads; it costs runtime performance to
 solve a message that appears only as the process exits.
+
+## Data-integrity test
+
+```bash
+godot --headless tests/balance_test.tscn
+```
+
+Checks that every declared upgrade actually moves its stat, the pickup ceiling
+holds, every enemy in `TYPE_SCHEDULE` exists and is well-formed, every sound the
+code plays has a mix level, the ramp stays monotonic and unbounded, and scoring
+stays inside int32. Exits non-zero on failure, so it is CI-ready.
+
+**It runs as a scene, not via `--script`.** `godot --headless --script` does not
+load autoloads, so any script referencing `Sfx`/`Music` fails to compile and
+every player property reads back `null` — the test appears to fail when the game
+is fine. Boot a scene instead.

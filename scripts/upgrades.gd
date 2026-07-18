@@ -1,68 +1,59 @@
 class_name Upgrades
 extends RefCounted
 
-## The Phase 1 upgrade pool (GDD section 6). Effects are applied to the player's
-## stat block in `apply()`.
+## Level-up card draw and effect application — LOGIC ONLY. The pool and every
+## effect value live in balance.gd (GDD section 6).
+##
+## Effects are data, not branches: an upgrade declares a stat, an op and a
+## value, so adding one is a single row in Balance.UPGRADES with no code change.
 
 const HEAL_ID := "heal"
 
-const POOL := [
-	{"id": "overclock", "name": "Overclock",   "desc": "+25% fire rate",   "max": 5},
-	{"id": "hollow",    "name": "Hollow Point","desc": "+5 damage",        "max": 8},
-	{"id": "split",     "name": "Split Shot",  "desc": "+1 projectile",    "max": 3},
-	{"id": "pierce",    "name": "Piercing",    "desc": "+1 pierce",        "max": 3},
-	{"id": "kinetics",  "name": "Kinetics",    "desc": "+15% move speed",  "max": 4},
-	# Additive, not multiplicative. A percentage compounds: 60px * 1.4^4 = 230px
-	# and it only got worse with more stacks. Flat +30 caps out at 60+120=180,
-	# which sits under MAX_PICKUP_RADIUS by design rather than by luck.
-	{"id": "magnetism", "name": "Magnetism",   "desc": "+30 pickup range", "max": 4},
-	{"id": "vitality",  "name": "Vitality",    "desc": "+20 max HP",       "max": 4},
-	{"id": "velocity",  "name": "Velocity",    "desc": "+20% shot speed",  "max": 3},
-]
 
-const HEAL_CARD := {"id": HEAL_ID, "name": "Repair", "desc": "+10 HP", "max": -1}
-
-
-## Draw 3 distinct cards for `level_index`, excluding maxed-out upgrades.
-## Backfills with Repair so there are always exactly 3 choices (GDD section 6).
+## Draw N distinct cards for `level_index`, excluding maxed-out upgrades.
+## Backfills with the fallback card so there are always exactly N choices.
 static func draw_choices(date_string: String, level_index: int, stacks: Dictionary) -> Array:
 	var rng := GameSeed.make_upgrade_rng(date_string, level_index)
 
 	var available := []
-	for entry in POOL:
+	for entry in Balance.UPGRADES:
 		if stacks.get(entry["id"], 0) < entry["max"]:
 			available.append(entry)
 
 	var choices := []
-	while choices.size() < 3 and not available.is_empty():
+	while choices.size() < Balance.LEVEL_UP_CHOICES and not available.is_empty():
 		var index := rng.randi_range(0, available.size() - 1)
 		choices.append(available[index])
 		available.remove_at(index)
 
-	while choices.size() < 3:
-		choices.append(HEAL_CARD)
+	while choices.size() < Balance.LEVEL_UP_CHOICES:
+		choices.append(Balance.UPGRADE_FALLBACK)
 
 	return choices
 
 
+static func find(upgrade_id: String) -> Dictionary:
+	for entry in Balance.UPGRADES:
+		if entry["id"] == upgrade_id:
+			return entry
+	return Balance.UPGRADE_FALLBACK
+
+
+## Apply a declared effect. Unknown ops are a data error, not a silent no-op.
 static func apply(upgrade_id: String, player: Node) -> void:
-	match upgrade_id:
-		"overclock":
-			player.fire_rate *= 1.25
-		"hollow":
-			player.damage += 5.0
-		"split":
-			player.projectile_count += 1
-		"pierce":
-			player.pierce += 1
-		"kinetics":
-			player.move_speed *= 1.15
-		"magnetism":
-			player.pickup_radius += 30.0
-		"vitality":
-			player.max_hp += 20.0
-			player.heal(20.0)  # Grant the new headroom now, not on the next pickup.
-		"velocity":
-			player.projectile_speed *= 1.20
-		HEAL_ID:
-			player.heal(10.0)
+	var entry := find(upgrade_id)
+	var stat: String = entry["stat"]
+	var value = entry["value"]
+
+	match entry["op"]:
+		"mul":
+			player.set(stat, player.get(stat) * value)
+		"add":
+			player.set(stat, player.get(stat) + value)
+		"add_max_hp":
+			player.max_hp += value
+			player.heal(value)   # grant the headroom now, not on the next pickup
+		"heal":
+			player.heal(value)
+		_:
+			push_error("Upgrades.apply: unknown op '%s' on '%s'" % [entry["op"], upgrade_id])

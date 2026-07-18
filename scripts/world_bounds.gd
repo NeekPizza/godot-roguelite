@@ -6,23 +6,22 @@ extends Node2D
 ## field gives no sense of speed or position. The grid supplies parallax-free
 ## motion cues and the border tells the player where the walls actually are.
 
-const GRID_STEP := 160.0
 const COLOR_GRID := Color(0.30, 0.85, 1.0, 0.055)
 const COLOR_WALL := Color(0.35, 0.90, 1.0, 0.55)
 
 
 func _draw() -> void:
-	var rect := Arena.RECT
+	var rect := Arena.rect()
 
 	var x := rect.position.x
 	while x <= rect.end.x:
 		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), COLOR_GRID, 1.0)
-		x += GRID_STEP
+		x += Balance.GRID_STEP
 
 	var y := rect.position.y
 	while y <= rect.end.y:
 		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), COLOR_GRID, 1.0)
-		y += GRID_STEP
+		y += Balance.GRID_STEP
 
 	# Drawn INSET, not on the rect itself. The camera is limited to exactly the
 	# world rect, so a border stroked on the boundary would sit half-off-screen

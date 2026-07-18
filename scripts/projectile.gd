@@ -1,22 +1,20 @@
 class_name Projectile
 extends Area2D
 
-## Pulse round. Travels straight, despawns past MAX_RANGE (GDD section 4).
+## Pulse round. Values live in balance.gd.
 
-const MAX_RANGE := 500.0
-const BASE_SPEED := 400.0
-const RADIUS := 4.0
 const COLOR := Color(1.0, 1.0, 1.0)
 
 var _direction := Vector2.UP
-var _damage := 10.0
+var _damage := Balance.WEAPON_DAMAGE
 var _pierce_left := 0
-var _speed := BASE_SPEED
+var _speed := Balance.PROJECTILE_SPEED
 var _travelled := 0.0
 var _already_hit: Array[int] = []
 
 
-func setup(direction: Vector2, damage: float, pierce: int, speed: float = BASE_SPEED) -> void:
+func setup(direction: Vector2, damage: float, pierce: int,
+		speed: float = Balance.PROJECTILE_SPEED) -> void:
 	_direction = direction
 	_damage = damage
 	_pierce_left = pierce
@@ -31,7 +29,7 @@ func _physics_process(delta: float) -> void:
 	var step := _speed * delta
 	position += _direction * step
 	_travelled += step
-	if _travelled >= MAX_RANGE:
+	if _travelled >= Balance.PROJECTILE_RANGE:
 		queue_free()
 
 
@@ -46,7 +44,7 @@ func _on_area_entered(area: Area2D) -> void:
 	_already_hit.append(enemy_id)
 
 	area.take_damage(_damage)
-	Sfx.play("hit", -6.0)
+	Sfx.play("hit")
 	if _pierce_left <= 0:
 		queue_free()
 	else:
@@ -54,5 +52,6 @@ func _on_area_entered(area: Area2D) -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, RADIUS, COLOR)
-	draw_circle(Vector2.ZERO, RADIUS * 2.0, Color(COLOR, 0.18))
+	var radius := Balance.PROJECTILE_RADIUS
+	draw_circle(Vector2.ZERO, radius, COLOR)
+	draw_circle(Vector2.ZERO, radius * 2.0, Color(COLOR, 0.18))

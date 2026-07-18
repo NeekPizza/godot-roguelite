@@ -8,9 +8,9 @@ extends Node
 
 const TRACK_PATH := "res://assets/music/synthwave_loop.ogg"
 
-## Sits well under the SFX. Gameplay audio has to stay readable — the music is
-## atmosphere, not the foreground. Phase 5 exposes this as a settings slider.
-const MUSIC_DB := -17.0
+## Level lives in balance.gd. Music sits well under the SFX: gameplay audio has
+## to stay readable, the music is atmosphere, not the foreground.
+const MUSIC_DB := Balance.MUSIC_DB
 
 var _player: AudioStreamPlayer
 

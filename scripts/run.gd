@@ -6,22 +6,12 @@ extends Node2D
 ## ENDLESS: there is no run duration and no win state. A run ends only on
 ## death. Difficulty is a continuous function of elapsed time (difficulty.gd)
 ## and keeps climbing without bound.
-const ENEMY_CAP := 300
+##
+## ORCHESTRATION ONLY — every tunable number comes from balance.gd.
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 const BOSS_SCENE := preload("res://scenes/boss.tscn")
-
-## Guaranteed XP payout when a boss dies, dropped at fixed ring offsets — no
-## RNG, because bosses die on player-dependent timing.
-const BOSS_GEM_COUNT := 12
-const BOSS_GEM_VALUE := 3
-const BOSS_GEM_RADIUS := 62.0
-
-## A splitter bursts into this many children, at fixed offsets. Deliberately
-## NOT random: splitters die on player-dependent timing, so drawing from
-## spawn_rng here would let a skilled player desync the shared wave stream.
-const SPLIT_OFFSETS := [Vector2(-26.0, -14.0), Vector2(26.0, 14.0)]
 
 enum State { RUNNING, LEVEL_UP, OVER }
 
@@ -202,9 +192,10 @@ func _schedule_waves(delta: float) -> void:
 		var edge := _spawn_rng.randi_range(0, 3)
 		var along := _spawn_rng.randf()
 		var roll := _spawn_rng.randf()
-		if _enemies.get_child_count() >= ENEMY_CAP:
+		if _enemies.get_child_count() >= Balance.ENEMY_CAP:
 			continue
-		_spawn_enemy(_pick_type(weights, roll), _edge_position(edge, along), hp_multiplier)
+		_spawn_enemy(Difficulty.pick_type(weights, roll),
+			Arena.edge_position(edge, along), hp_multiplier)
 
 
 ## Bosses arrive on a FIXED time schedule (difficulty.gd), never a player-driven
@@ -215,7 +206,7 @@ func _check_boss_schedule() -> void:
 	while _elapsed >= Difficulty.boss_time(_next_boss):
 		var edge := _spawn_rng.randi_range(0, 3)
 		var along := _spawn_rng.randf()
-		_spawn_boss(_next_boss, _edge_position(edge, along))
+		_spawn_boss(_next_boss, Arena.edge_position(edge, along))
 		_next_boss += 1
 
 
@@ -226,25 +217,11 @@ func _spawn_boss(boss_index: int, at: Vector2) -> void:
 	boss.shot_parent = _enemy_shots
 	boss.killed.connect(_on_boss_killed)
 	_enemies.add_child(boss)
-	Sfx.play("level_up", -2.0)   # stand-in sting until Phase 5 audio pass
-	_fx.add_shake(6.0)
+	Sfx.play("boss_spawn")
+	_fx.add_shake(Balance.SHAKE_ON_BOSS_SPAWN)
 	print("[run] BOSS %d at %s (hp %.0f, dmg %.0f)" % [
 		boss_index, _format_time(_elapsed),
 		Difficulty.boss_hp(boss_index), Difficulty.boss_damage(boss_index)])
-
-
-## Weighted pick driven by an already-drawn roll, so the caller controls exactly
-## how much RNG each spawn consumes.
-func _pick_type(table: Array, roll: float) -> String:
-	var total := 0.0
-	for entry in table:
-		total += entry[1]
-	var target := roll * total
-	for entry in table:
-		target -= entry[1]
-		if target <= 0.0:
-			return entry[0]
-	return table[table.size() - 1][0]
 
 
 func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float) -> void:
@@ -257,28 +234,14 @@ func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float) -> void:
 	_enemies.add_child(enemy)
 
 
-## Absolute spawn point just outside one of the four arena edges. Independent of
-## player position, so every player on a seed gets identical spawn coordinates.
-func _edge_position(edge: int, along: float) -> Vector2:
-	var rect := Arena.RECT
-	var margin := Arena.SPAWN_MARGIN
-	match edge:
-		0:  return Vector2(rect.position.x + rect.size.x * along, rect.position.y - margin)
-		1:  return Vector2(rect.end.x + margin, rect.position.y + rect.size.y * along)
-		2:  return Vector2(rect.position.x + rect.size.x * along, rect.end.y + margin)
-		_:  return Vector2(rect.position.x - margin, rect.position.y + rect.size.y * along)
-
-
 # --- XP and levelling --------------------------------------------------------
 
 func _xp_needed(level: int) -> int:
-	# Steeper than Phase 1's 5 + 4(N-1). With the denser waves below, the old
-	# curve handed out levels faster than upgrades stayed meaningful.
-	return 6 + (level - 1) * 5
+	return Balance.XP_BASE + (level - 1) * Balance.XP_STEP
 
 
 func _on_xp_collected(amount: int) -> void:
-	Sfx.play("xp_pickup", -14.0)
+	Sfx.play("xp_pickup")
 	_xp += amount
 	_xp_collected += amount
 	_xp_into_level += amount
@@ -307,7 +270,7 @@ func _open_level_up() -> void:
 
 	print("[run] level up -> %d  (xp %d, kills %d)" % [_level, _xp_collected, _kills])
 	_update_hud()  # Otherwise the HUD still shows the pre-level-up level.
-	Sfx.play("level_up", -4.0)
+	Sfx.play("level_up")
 	_levelup_layer.show()
 	_levelup_buttons.get_child(0).grab_focus()
 
@@ -354,9 +317,10 @@ func _on_enemy_killed(enemy: Area2D) -> void:
 	# in a fixed order at the end of the same frame.
 	_gems.add_child.call_deferred(gem)
 
-	_fx.burst(enemy.position, enemy.stats["color"], 10, 170.0)
-	_fx.add_shake(1.2)
-	Sfx.play("enemy_death", -10.0)
+	_fx.burst(enemy.position, enemy.stats["color"],
+		Balance.PARTICLES_ON_KILL, Balance.PARTICLE_SPEED_KILL)
+	_fx.add_shake(Balance.SHAKE_ON_KILL)
+	Sfx.play("enemy_death")
 
 	if enemy.stats.has("splits_into"):
 		_split(enemy)
@@ -364,11 +328,12 @@ func _on_enemy_killed(enemy: Area2D) -> void:
 
 func _split(parent_enemy: Area2D) -> void:
 	var child_type: String = parent_enemy.stats["splits_into"]
-	var count: int = mini(int(parent_enemy.stats["split_count"]), SPLIT_OFFSETS.size())
-	if _enemies.get_child_count() + count > ENEMY_CAP:
+	var count: int = mini(int(parent_enemy.stats["split_count"]), Balance.SPLIT_OFFSETS.size())
+	if _enemies.get_child_count() + count > Balance.ENEMY_CAP:
 		return
 	for i in count:
-		var at: Vector2 = Arena.clamp_position(parent_enemy.position + SPLIT_OFFSETS[i], 24.0)
+		var at: Vector2 = Arena.clamp_position(
+			parent_enemy.position + Balance.SPLIT_OFFSETS[i], 24.0)
 		_spawn_enemy.call_deferred(child_type, at, 1.0)
 
 
@@ -378,17 +343,18 @@ func _on_boss_killed(boss: Area2D) -> void:
 	_kill_score += int(boss.score_value)
 
 	# Guaranteed XP at fixed offsets, so the payout cannot vary between players.
-	for i in BOSS_GEM_COUNT:
-		var angle := TAU * float(i) / float(BOSS_GEM_COUNT)
+	for i in Balance.BOSS_GEM_COUNT:
+		var angle := TAU * float(i) / float(Balance.BOSS_GEM_COUNT)
 		var gem := XP_GEM_SCENE.instantiate()
 		gem.position = Arena.clamp_position(
-			boss.position + Vector2(BOSS_GEM_RADIUS, 0.0).rotated(angle), 12.0)
-		gem.value = BOSS_GEM_VALUE
+			boss.position + Vector2(Balance.BOSS_GEM_RADIUS, 0.0).rotated(angle), 12.0)
+		gem.value = Balance.BOSS_GEM_VALUE
 		_gems.add_child.call_deferred(gem)
 
-	_fx.burst(boss.position, boss.COLOR, 90, 340.0)
-	_fx.add_shake(12.0)
-	Sfx.play("enemy_death", -2.0)
+	_fx.burst(boss.position, Balance.BOSS_COLOR,
+		Balance.PARTICLES_ON_BOSS_KILL, Balance.PARTICLE_SPEED_BOSS)
+	_fx.add_shake(Balance.SHAKE_ON_BOSS_KILL)
+	Sfx.play("boss_death")
 	print("[run] boss %d down at %s (+%d score)" % [
 		boss.index, _format_time(_elapsed), boss.score_value])
 
@@ -399,8 +365,9 @@ func _on_player_died() -> void:
 
 func _on_player_damaged(current_hp: float) -> void:
 	_hp_bar.value = current_hp
-	_fx.burst(_player.position, Color(1.0, 0.35, 0.45), 16, 210.0)
-	_fx.add_shake(7.0)
+	_fx.burst(_player.position, Color(1.0, 0.35, 0.45),
+		Balance.PARTICLES_ON_PLAYER_HURT, Balance.PARTICLE_SPEED_HURT)
+	_fx.add_shake(Balance.SHAKE_ON_PLAYER_HURT)
 
 
 func _end_run() -> void:

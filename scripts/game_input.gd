@@ -7,7 +7,7 @@ extends Node
 ## here is version-robust, readable, and diffable. Controller bindings are set
 ## up now so Phase 5 controller support is mostly free.
 
-const DEADZONE := 0.25
+const DEADZONE := Balance.STICK_DEADZONE
 
 const ACTIONS := {
 	"move_left":  {"keys": [KEY_A, KEY_LEFT],  "axis": [JOY_AXIS_LEFT_X, -1.0], "buttons": [JOY_BUTTON_DPAD_LEFT]},
