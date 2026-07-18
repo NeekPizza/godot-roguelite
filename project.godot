@@ -19,6 +19,8 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 GameInput="*res://scripts/game_input.gd"
 Sfx="*res://scripts/sfx.gd"
 Music="*res://scripts/music.gd"
+SaveStore="*res://scripts/save_store.gd"
+RunConfig="*res://scripts/run_config.gd"
 
 [display]
 

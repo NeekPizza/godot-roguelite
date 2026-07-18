@@ -32,6 +32,7 @@ var pierce := Balance.WEAPON_PIERCE
 var projectile_parent: Node2D
 var godmode := false  # test hook only; see docs/TESTING.md
 var _facing := Vector2.UP
+var _scripted_elapsed := 0.0
 var _iframes := 0.0
 var _fire_cooldown := 0.0
 
@@ -56,6 +57,7 @@ func _setup_camera() -> void:
 
 func _physics_process(delta: float) -> void:
 	_iframes = maxf(0.0, _iframes - delta)
+	_scripted_elapsed += delta
 	_move(delta)
 	_collect_pickups()
 	_take_contact_damage()
@@ -64,11 +66,18 @@ func _physics_process(delta: float) -> void:
 
 
 func _move(delta: float) -> void:
-	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var direction := _input_direction()
 	if direction.length_squared() > 0.0:
 		_facing = direction.normalized()
 		position += _facing * move_speed * delta
 		position = Arena.clamp_position(position, Balance.PLAYER_RADIUS)
+
+
+## Real input, unless a test has installed a synthetic player.
+func _input_direction() -> Vector2:
+	if RunConfig.scripted_input_seed != "":
+		return ScriptedInput.direction(RunConfig.scripted_input_seed, _scripted_elapsed)
+	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
 
 
 func _fire(delta: float) -> void:

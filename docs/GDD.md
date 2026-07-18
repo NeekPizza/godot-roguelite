@@ -429,7 +429,7 @@ into the build:
 | 0 | This document | Approved by Nick |
 | 1 | Vertical slice | Move, auto-attack, seeded Drifter waves, XP, level-up 3-choice, run ends → score |
 | 2 | Content + feel | 5 enemies, 6 upgrades, particles, screen shake, 7 SFX, difficulty ramp |
-| 3 | Daily seed + local scores | Determinism test passes; local high-score table; **ranked-attempt bookkeeping** (one per UTC day, persisted, survives a mid-run quit) and **archive practice** on any past date |
+| 3 | Daily seed + local scores | **DONE.** Determinism test passes (scripted player + RNG-state digest + negative control); local high-score table; ranked-attempt bookkeeping (one per UTC day, persisted, burned at run start so a mid-run quit grants no retry); archive practice on any past date |
 | 4 | Steam | GodotSteam 4.20 prebuilt GDExtension; leaderboard submit/fetch + achievements; **runs fine with Steam absent** |
 | 5 | Ship prep | Menus, settings, pause, controller, Windows export, release checklist. Includes the **ranked-run confirmation gate** and the archive date-picker UI |
 

@@ -214,6 +214,10 @@ const SCORE_PER_XP := 2
 ## Plausibility bound for submitted scores — far above any legitimate run.
 ## See score.gd for the int32 headroom argument.
 const SCORE_CEILING := 50_000_000
+## How many run records to keep locally, and how many to show on the run-over
+## screen.
+const SCORE_HISTORY_MAX := 200
+const SCORE_TABLE_ROWS := 5
 
 # =============================================================================
 # PICKUPS

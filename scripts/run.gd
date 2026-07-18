@@ -50,6 +50,7 @@ var _kill_score := 0
 var _xp_collected := 0
 var _next_boss := 1
 var _bosses_killed := 0
+var _ranked := false
 
 ## Headless test hooks, passed after a `--` separator. See docs/TESTING.md.
 ## `--run-seconds` is gone: with no fixed run length there is nothing to shorten.
@@ -107,9 +108,15 @@ func _ready() -> void:
 
 	_fx.camera = _player.get_node("Camera")
 
-	_date_string = GameSeed.today_utc()
+	# Which run this is (seed date + whether it counts) is decided by RunConfig,
+	# never here. begin_run() burns the ranked attempt AT START, so quitting
+	# mid-run cannot buy a retry.
+	RunConfig.begin_run()
+	_date_string = RunConfig.date_string
+	_ranked = RunConfig.is_ranked()
 	_spawn_rng = GameSeed.make_spawn_rng(_date_string)
-	print("[run] seed date=%s seed=%d" % [_date_string, GameSeed.for_date(_date_string)])
+	print("[run] %s seed date=%s seed=%d" % [
+		RunConfig.mode_name(), _date_string, GameSeed.for_date(_date_string)])
 
 	_player.godmode = _godmode
 	_player.projectile_parent = _projectiles
@@ -376,6 +383,7 @@ func _end_run() -> void:
 	_state = State.OVER
 	get_tree().paused = true
 
+	_record_result()
 	_gameover_label.text = "YOU DIED\n\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to restart" % [
 		_format_time(_elapsed), _score(),
 		_kills, _kill_score,
@@ -383,14 +391,66 @@ func _end_run() -> void:
 		_xp_collected, Score.PER_XP, _xp_collected * Score.PER_XP,
 		_bosses_killed,
 	]
+	_gameover_label.text += "\n\n%s" % _score_table_text()
 	_gameover_layer.show()
 	Sfx.play("run_over")
 	if _quit_on_end:
 		_quit_cleanly.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
-	print("[run] over time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
+	print("[digest] %s" % _state_digest())
+	print("[run] over mode=%s date=%s time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
+		RunConfig.mode_name(), _date_string,
 		_format_time(_elapsed), _score(), _kills, _xp_collected, _level,
 		_bosses_killed, Score.is_plausible(_score())])
+
+
+## Persist the run. Scores are bounded before storage so a corrupted or edited
+## value cannot poison the local table (and, in Phase 4, the Steam submission).
+func _record_result() -> void:
+	var final_score := Score.bounded(_score())
+	SaveStore.record_score({
+		"date": _date_string,
+		"ranked": _ranked,
+		"score": final_score,
+		"kills": _kills,
+		"seconds": int(_elapsed),
+		"level": _level,
+		"bosses": _bosses_killed,
+	})
+	if _ranked:
+		SaveStore.finish_ranked_attempt(_date_string, final_score)
+
+
+func _score_table_text() -> String:
+	var rows := SaveStore.top_for_date(_date_string, Balance.SCORE_TABLE_ROWS)
+	if rows.is_empty():
+		return ""
+	var lines := PackedStringArray(["BEST ON %s" % _date_string])
+	for i in rows.size():
+		var row: Dictionary = rows[i]
+		lines.append("%d.  %7d   %s   lv%d   %s" % [
+			i + 1, int(row.get("score", 0)),
+			_format_time(float(row.get("seconds", 0))),
+			int(row.get("level", 1)),
+			"ranked" if bool(row.get("ranked", false)) else "practice",
+		])
+	return "\n".join(lines)
+
+
+## End-of-run fingerprint for the determinism check.
+##
+## The important field is spawn_rng.state: it encodes exactly how many draws the
+## wave scheduler made over the whole run. Two runs matching on score alone could
+## still have consumed the stream differently; matching on RNG state cannot.
+func _state_digest() -> String:
+	return "rng=%d pos=(%.3f,%.3f) hp=%.3f elapsed=%.3f kills=%d killscore=%d xp=%d level=%d bosses=%d nextboss=%d alive=%d gems=%d spawned=%s" % [
+		_spawn_rng.state,
+		_player.position.x, _player.position.y, _player.hp,
+		_elapsed, _kills, _kill_score, _xp_collected, _level,
+		_bosses_killed, _next_boss,
+		_enemies.get_child_count(), _gems.get_child_count(),
+		JSON.stringify(_type_counts),
+	]
 
 
 # --- HUD ---------------------------------------------------------------------
@@ -402,7 +462,7 @@ func _format_time(seconds: float) -> String:
 func _update_hud() -> void:
 	_timer_label.text = _format_time(_elapsed)   # counts UP; endless
 	_score_label.text = "SCORE %d" % _score()
-	_level_label.text = "LV %d" % _level
+	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
 	_hp_bar.value = _player.hp
 	_xp_bar.max_value = _xp_needed(_level)
 	_xp_bar.value = _xp_into_level

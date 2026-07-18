@@ -29,6 +29,36 @@ static func today_utc() -> String:
 	return "%04d-%02d-%02d" % [now["year"], now["month"], now["day"]]
 
 
+## Shift a "YYYY-MM-DD" string by whole days, for the practice archive.
+## Goes through Unix time so month and year boundaries and leap years are the
+## calendar's problem rather than ours.
+static func days_before(date_string: String, days: int) -> String:
+	var parts := date_string.split("-")
+	if parts.size() != 3:
+		return date_string
+	var unix := Time.get_unix_time_from_datetime_dict({
+		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+		"hour": 12, "minute": 0, "second": 0,   # midday avoids DST edge cases
+	})
+	var shifted := Time.get_datetime_dict_from_unix_time(int(unix) - days * 86400)
+	return "%04d-%02d-%02d" % [shifted["year"], shifted["month"], shifted["day"]]
+
+
+## True if `date_string` is a real calendar date not in the future (UTC).
+static func is_valid_past_or_today(date_string: String) -> bool:
+	var parts := date_string.split("-")
+	if parts.size() != 3:
+		return false
+	for part in parts:
+		if not part.is_valid_int():
+			return false
+	var month := int(parts[1])
+	var day := int(parts[2])
+	if month < 1 or month > 12 or day < 1 or day > 31:
+		return false
+	return date_string <= today_utc()   # ISO dates sort lexicographically
+
+
 static func for_date(date_string: String) -> int:
 	return hash_string(date_string)
 
