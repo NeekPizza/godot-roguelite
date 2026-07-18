@@ -2,8 +2,13 @@
 .godot/
 /android/
 
-# Import cache
-*.import
+# NOTE: *.import files are deliberately NOT ignored.
+#
+# In Godot 3 the import cache lived in .import/ and was correctly excluded. In
+# Godot 4 the cache is .godot/ (ignored above) and the per-asset *.import files
+# are source metadata holding the stable resource UID plus import settings.
+# Excluding them makes a fresh clone regenerate new UIDs, which silently breaks
+# any resource referenced by UID. They belong in version control.
 
 # Exported builds
 /build/

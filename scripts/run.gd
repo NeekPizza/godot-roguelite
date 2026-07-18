@@ -7,29 +7,41 @@ const RUN_DURATION := 600.0  # 10 minutes
 const ENEMY_CAP := 300
 const CLEAR_BONUS := 2000
 
-const SCORE_PER_KILL := 10
 const SCORE_PER_SECOND := 5
 const SCORE_PER_XP := 2
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 
-## Difficulty tiers (GDD section 7): {until_seconds, interval, count, hp_mult}.
-## Ramps on elapsed time, never on player level.
+## Difficulty tiers (GDD section 7). Ramps on elapsed time, never on player
+## level. "types" is a weighted table; new enemy kinds phase in as the run goes.
 const TIERS := [
-	{"until": 120.0, "interval": 1.20, "count": 1, "hp_mult": 1.0},
-	{"until": 240.0, "interval": 0.90, "count": 2, "hp_mult": 1.2},
-	{"until": 360.0, "interval": 0.70, "count": 2, "hp_mult": 1.5},
-	{"until": 480.0, "interval": 0.55, "count": 3, "hp_mult": 1.9},
-	{"until": 600.0, "interval": 0.40, "count": 4, "hp_mult": 2.4},
+	{"until": 120.0, "interval": 1.20, "count": 1, "hp_mult": 1.0,
+	 "types": [["drifter", 1.00]]},
+	{"until": 240.0, "interval": 0.90, "count": 2, "hp_mult": 1.2,
+	 "types": [["drifter", 0.65], ["swarmer", 0.35]]},
+	{"until": 360.0, "interval": 0.70, "count": 2, "hp_mult": 1.5,
+	 "types": [["drifter", 0.45], ["swarmer", 0.35], ["shooter", 0.20]]},
+	{"until": 480.0, "interval": 0.55, "count": 3, "hp_mult": 1.9,
+	 "types": [["drifter", 0.30], ["swarmer", 0.30], ["shooter", 0.20], ["tank", 0.20]]},
+	{"until": 600.0, "interval": 0.40, "count": 4, "hp_mult": 2.4,
+	 "types": [["drifter", 0.22], ["swarmer", 0.28], ["shooter", 0.18],
+			   ["tank", 0.17], ["splitter", 0.15]]},
 ]
+
+## A splitter bursts into this many children, at fixed offsets. Deliberately
+## NOT random: splitters die on player-dependent timing, so drawing from
+## spawn_rng here would let a skilled player desync the shared wave stream.
+const SPLIT_OFFSETS := [Vector2(-26.0, -14.0), Vector2(26.0, 14.0)]
 
 enum State { RUNNING, LEVEL_UP, OVER }
 
 @onready var _player: Area2D = $Player
 @onready var _enemies: Node2D = $Enemies
 @onready var _projectiles: Node2D = $Projectiles
+@onready var _enemy_shots: Node2D = $EnemyShots
 @onready var _gems: Node2D = $Gems
+@onready var _fx: Node2D = $Fx
 
 @onready var _timer_label: Label = $HUD/Root/TimerLabel
 @onready var _score_label: Label = $HUD/Root/ScoreLabel
@@ -55,6 +67,7 @@ var _pending_levels := 0
 var _stacks := {}
 
 var _kills := 0
+var _kill_score := 0
 var _xp_collected := 0
 var _survived := false
 
@@ -66,12 +79,18 @@ var _run_duration := RUN_DURATION
 var _auto_pick := false
 var _screenshot_path := ""
 var _screenshot_after := 0.0
+var _godmode := false
+var _type_counts := {}
 
 
 func _parse_test_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--auto-pick":
 			_auto_pick = true
+		elif arg == "--godmode":
+			# Lets an unattended run survive the whole difficulty ramp, which is
+			# the only way to exercise the late-tier enemy types headlessly.
+			_godmode = true
 		elif arg.begins_with("--run-seconds="):
 			_run_duration = float(arg.split("=")[1])
 			print("[run] test override: duration=%.1fs" % _run_duration)
@@ -92,13 +111,16 @@ func _ready() -> void:
 	# so the line above would silently hand ALWAYS to every gameplay node and
 	# make get_tree().paused a no-op — enemies would keep advancing while the
 	# player reads upgrade cards. Pin the gameplay subtrees back to PAUSABLE.
-	for node in [_player, _enemies, _projectiles, _gems]:
+	for node in [_player, _enemies, _projectiles, _enemy_shots, _gems, _fx]:
 		node.process_mode = Node.PROCESS_MODE_PAUSABLE
+
+	_fx.camera = _player.get_node("Camera")
 
 	_date_string = GameSeed.today_utc()
 	_spawn_rng = GameSeed.make_spawn_rng(_date_string)
 	print("[run] seed date=%s seed=%d" % [_date_string, GameSeed.for_date(_date_string)])
 
+	_player.godmode = _godmode
 	_player.projectile_parent = _projectiles
 	_player.died.connect(_on_player_died)
 	_player.damaged.connect(_on_player_damaged)
@@ -162,7 +184,8 @@ func _schedule_waves(delta: float) -> void:
 	_spawn_timer += tier["interval"]
 
 	for i in tier["count"]:
-		# Draw from spawn_rng UNCONDITIONALLY, before the cap check.
+		# Draw from spawn_rng UNCONDITIONALLY, before the cap check, and always
+		# draw exactly three values regardless of tier.
 		#
 		# This ordering is load-bearing for determinism: how many enemies are
 		# alive depends on how well the player is fighting, so if a skipped
@@ -170,15 +193,32 @@ func _schedule_waves(delta: float) -> void:
 		# desync the shared stream and stop playing the same daily run.
 		var edge := _spawn_rng.randi_range(0, 3)
 		var along := _spawn_rng.randf()
+		var roll := _spawn_rng.randf()
 		if _enemies.get_child_count() >= ENEMY_CAP:
 			continue
-		_spawn_enemy(edge, along, tier["hp_mult"])
+		_spawn_enemy(_pick_type(tier["types"], roll), _edge_position(edge, along), tier["hp_mult"])
 
 
-func _spawn_enemy(edge: int, along: float, hp_multiplier: float) -> void:
+## Weighted pick driven by an already-drawn roll, so the caller controls exactly
+## how much RNG each spawn consumes.
+func _pick_type(table: Array, roll: float) -> String:
+	var total := 0.0
+	for entry in table:
+		total += entry[1]
+	var target := roll * total
+	for entry in table:
+		target -= entry[1]
+		if target <= 0.0:
+			return entry[0]
+	return table[table.size() - 1][0]
+
+
+func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float) -> void:
+	_type_counts[type_id] = _type_counts.get(type_id, 0) + 1
 	var enemy := ENEMY_SCENE.instantiate()
-	enemy.position = _edge_position(edge, along)
-	enemy.setup(hp_multiplier)
+	enemy.position = at
+	enemy.setup(type_id, hp_multiplier)
+	enemy.shot_parent = _enemy_shots
 	enemy.killed.connect(_on_enemy_killed)
 	_enemies.add_child(enemy)
 
@@ -202,6 +242,7 @@ func _xp_needed(level: int) -> int:
 
 
 func _on_xp_collected(amount: int) -> void:
+	Sfx.play("xp_pickup", -14.0)
 	_xp += amount
 	_xp_collected += amount
 	_xp_into_level += amount
@@ -230,6 +271,7 @@ func _open_level_up() -> void:
 
 	print("[run] level up -> %d  (xp %d, kills %d)" % [_level, _xp_collected, _kills])
 	_update_hud()  # Otherwise the HUD still shows the pre-level-up level.
+	Sfx.play("level_up", -4.0)
 	_levelup_layer.show()
 	_levelup_buttons.get_child(0).grab_focus()
 
@@ -258,7 +300,9 @@ func _on_upgrade_chosen(upgrade_id: String) -> void:
 # --- Scoring and run end -----------------------------------------------------
 
 func _score() -> int:
-	var score := _kills * SCORE_PER_KILL
+	# Per-type score values, not a flat rate: a tank is worth 30 and a swarmer 6,
+	# so the board rewards fighting the dangerous things.
+	var score := _kill_score
 	score += int(_elapsed) * SCORE_PER_SECOND
 	score += _xp_collected * SCORE_PER_XP
 	if _survived:
@@ -266,16 +310,35 @@ func _score() -> int:
 	return score
 
 
-func _on_enemy_killed(enemy: Node2D) -> void:
+func _on_enemy_killed(enemy: Area2D) -> void:
 	_kills += 1
+	_kill_score += int(enemy.stats["score"])
+
 	var gem := XP_GEM_SCENE.instantiate()
 	gem.position = enemy.position
-	gem.value = 1
+	gem.value = int(enemy.stats["xp"])
 	# Deferred: this fires from an area_entered signal, i.e. mid physics-query
 	# flush, and adding an Area2D right then throws "Can't change this state
 	# while flushing queries". Deferring is still deterministic — the adds run
 	# in a fixed order at the end of the same frame.
 	_gems.add_child.call_deferred(gem)
+
+	_fx.burst(enemy.position, enemy.stats["color"], 10, 170.0)
+	_fx.add_shake(1.2)
+	Sfx.play("enemy_death", -10.0)
+
+	if enemy.stats.has("splits_into"):
+		_split(enemy)
+
+
+func _split(parent_enemy: Area2D) -> void:
+	var child_type: String = parent_enemy.stats["splits_into"]
+	var count: int = mini(int(parent_enemy.stats["split_count"]), SPLIT_OFFSETS.size())
+	if _enemies.get_child_count() + count > ENEMY_CAP:
+		return
+	for i in count:
+		var at: Vector2 = Arena.clamp_position(parent_enemy.position + SPLIT_OFFSETS[i], 24.0)
+		_spawn_enemy.call_deferred(child_type, at, 1.0)
 
 
 func _on_player_died() -> void:
@@ -285,6 +348,8 @@ func _on_player_died() -> void:
 
 func _on_player_damaged(current_hp: float) -> void:
 	_hp_bar.value = current_hp
+	_fx.burst(_player.position, Color(1.0, 0.35, 0.45), 16, 210.0)
+	_fx.add_shake(7.0)
 
 
 func _end_run() -> void:
@@ -294,14 +359,16 @@ func _end_run() -> void:
 	get_tree().paused = true
 
 	var headline := "RUN CLEARED" if _survived else "YOU DIED"
-	_gameover_label.text = "%s\n\nSCORE  %d\n\nkills %d  x%d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nclear bonus  %d\n\npress R to restart" % [
+	_gameover_label.text = "%s\n\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nclear bonus  %d\n\npress R to restart" % [
 		headline, _score(),
-		_kills, SCORE_PER_KILL, _kills * SCORE_PER_KILL,
+		_kills, _kill_score,
 		_format_time(_elapsed), SCORE_PER_SECOND, int(_elapsed) * SCORE_PER_SECOND,
 		_xp_collected, SCORE_PER_XP, _xp_collected * SCORE_PER_XP,
 		CLEAR_BONUS if _survived else 0,
 	]
 	_gameover_layer.show()
+	Sfx.play("run_over")
+	print("[run] spawned by type: %s" % _type_counts)
 	print("[run] over survived=%s score=%d kills=%d xp=%d level=%d" % [_survived, _score(), _kills, _xp_collected, _level])
 
 

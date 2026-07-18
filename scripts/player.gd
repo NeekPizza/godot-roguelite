@@ -33,10 +33,12 @@ var pickup_radius := 60.0:
 		pickup_radius = minf(value, MAX_PICKUP_RADIUS)
 var damage := 10.0
 var fire_rate := 2.0
+var projectile_speed := Projectile.BASE_SPEED
 var projectile_count := 1
 var pierce := 0
 
 var projectile_parent: Node2D
+var godmode := false  # test hook only; see docs/TESTING.md
 var _facing := Vector2.UP
 var _iframes := 0.0
 var _fire_cooldown := 0.0
@@ -95,8 +97,10 @@ func _fire(delta: float) -> void:
 		var offset := (float(i) - float(projectile_count - 1) * 0.5) * SPREAD_RADIANS
 		var projectile := PROJECTILE_SCENE.instantiate()
 		projectile.position = position
-		projectile.setup(aim.rotated(offset), damage, pierce)
+		projectile.setup(aim.rotated(offset), damage, pierce, projectile_speed)
 		projectile_parent.add_child(projectile)
+
+	Sfx.play("shoot", -12.0)
 
 
 func _nearest_enemy() -> Node2D:
@@ -133,10 +137,13 @@ func _take_contact_damage() -> void:
 
 
 func take_damage(amount: float) -> void:
+	if godmode:
+		return
 	if _iframes > 0.0 or hp <= 0.0:
 		return  # Already dead: never emit `died` twice.
 	hp -= amount
 	_iframes = IFRAME_DURATION
+	Sfx.play("player_hurt")
 	damaged.emit(hp)
 	if hp <= 0.0:
 		hp = 0.0

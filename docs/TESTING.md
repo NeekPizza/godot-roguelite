@@ -17,6 +17,7 @@ upgrade cards, which makes automated checks impossible otherwise.
 |---|---|
 | `--run-seconds=N` | Shortens the run to N seconds. The difficulty ramp is **scaled**, not truncated, so a short run still walks the whole curve from tier 1 to tier 5. |
 | `--auto-pick` | Auto-selects card 0 at every level-up. Without it, a headless run pauses forever at the first level-up waiting for input that will never arrive. |
+| `--godmode` | Player takes no damage. The only way to exercise the late-tier enemy types unattended — an idle run dies in tier 1-2 and never sees Tanks, Shooters or Splitters spawn. |
 | `--screenshot=PATH@N` | Saves a PNG of the framebuffer N seconds in. Requires a window (not `--headless`, which has no renderer). |
 
 Examples:
@@ -24,6 +25,9 @@ Examples:
 ```bash
 # 30-second unattended smoke run
 godot --headless --quit-after 3600 -- --run-seconds=30 --auto-pick
+
+# Walk the entire difficulty ramp, all five enemy types, unattended
+godot --headless --quit-after 40000 -- --run-seconds=60 --auto-pick --godmode
 
 # Capture the level-up screen 20s in
 godot --quit-after 8000 -- --run-seconds=30 --screenshot=/tmp/shot.png@20
@@ -50,3 +54,11 @@ runs follow the same code path, so it proves the RNG streams are seeded and
 consumed consistently but *not* that player behaviour can't desync them. Phase 3
 replaces it with a real test that replays a recorded input sequence and compares
 full end state. Do not treat the current check as proof of determinism.
+
+## Gotcha: new assets need two import passes
+
+A script that `preload()`s a freshly added asset fails on the first
+`godot --headless --import`: the importer has not produced the `.import`
+metadata yet, so the preload cannot resolve and the script fails to compile.
+Run `--import` a second time and it resolves. If an autoload fails to compile
+this way, the game still boots but that autoload is silently missing.

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/run.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/world_bounds.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/fx.gd" id="4"]
 
 [node name="Run" type="Node2D"]
 script = ExtResource("1")
@@ -16,7 +17,12 @@ script = ExtResource("3")
 
 [node name="Projectiles" type="Node2D" parent="."]
 
+[node name="EnemyShots" type="Node2D" parent="."]
+
 [node name="Player" parent="." instance=ExtResource("2")]
+
+[node name="Fx" type="Node2D" parent="."]
+script = ExtResource("4")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 

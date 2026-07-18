@@ -16,6 +16,8 @@ const POOL := [
 	# and it only got worse with more stacks. Flat +30 caps out at 60+120=180,
 	# which sits under MAX_PICKUP_RADIUS by design rather than by luck.
 	{"id": "magnetism", "name": "Magnetism",   "desc": "+30 pickup range", "max": 4},
+	{"id": "vitality",  "name": "Vitality",    "desc": "+20 max HP",       "max": 4},
+	{"id": "velocity",  "name": "Velocity",    "desc": "+20% shot speed",  "max": 3},
 ]
 
 const HEAL_CARD := {"id": HEAL_ID, "name": "Repair", "desc": "+10 HP", "max": -1}
@@ -57,5 +59,10 @@ static func apply(upgrade_id: String, player: Node) -> void:
 			player.move_speed *= 1.15
 		"magnetism":
 			player.pickup_radius += 30.0
+		"vitality":
+			player.max_hp += 20.0
+			player.heal(20.0)  # Grant the new headroom now, not on the next pickup.
+		"velocity":
+			player.projectile_speed *= 1.20
 		HEAL_ID:
 			player.heal(10.0)
