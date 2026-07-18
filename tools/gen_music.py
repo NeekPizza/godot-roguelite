@@ -59,6 +59,10 @@ PAD_CHORDS = {
 }
 ARP_FIGURE = [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 1, 2, 1, 2]
 
+# Wobbles per bar, cycled bar to bar. Mixing 1/8, 1/4 and 1/16 rates keeps the
+# bass figure from droning on one note value.
+WOBBLE_RATES = [8, 8, 4, 16, 8, 4, 16, 8]
+
 LEAD_PHRASE = [
     (0, 0.0, 1.5, 69), (0, 1.5, 0.5, 72), (0, 2.0, 1.0, 76), (0, 3.0, 1.0, 74),
     (1, 0.0, 2.0, 71), (1, 2.0, 2.0, 69),
@@ -134,6 +138,31 @@ def resonant_lowpass(x, cutoff_start, cutoff_end, q, block=256):
         fc = cutoff_start + (cutoff_end - cutoff_start) * progress
         fc = float(np.clip(fc, 30.0, SR * 0.45))
 
+        w0 = 2.0 * math.pi * fc / SR
+        alpha = math.sin(w0) / (2.0 * max(0.5, q))
+        cos_w0 = math.cos(w0)
+        b = np.array([(1.0 - cos_w0) / 2.0, 1.0 - cos_w0, (1.0 - cos_w0) / 2.0])
+        a = np.array([1.0 + alpha, -2.0 * cos_w0, 1.0 - alpha])
+        b /= a[0]
+        a = a / a[0]
+        out[start:end], zi = signal.lfilter(b, a, x[start:end], zi=zi)
+    return out
+
+
+def resonant_lowpass_mod(x, cutoff_curve, q, block=128):
+    """Low-pass whose cutoff follows an arbitrary curve, re-tuned every block.
+
+    The wobble bass needs cutoff modulated by an LFO rather than a straight
+    line, so this takes a full-length curve instead of start/end values. Smaller
+    block than the static version: a fast wobble needs finer time resolution or
+    it turns into audible steps.
+    """
+    n = len(x)
+    out = np.empty_like(x)
+    zi = np.zeros(2)
+    for start in range(0, n, block):
+        end = min(start + block, n)
+        fc = float(np.clip(cutoff_curve[start], 30.0, SR * 0.45))
         w0 = 2.0 * math.pi * fc / SR
         alpha = math.sin(w0) / (2.0 * max(0.5, q))
         cos_w0 = math.cos(w0)
@@ -232,6 +261,64 @@ def pulse_voice(start, length, freq, amp, width, cutoff, q, pan,
         add_send(start, body, send_amount)
 
 
+def sub_bass(start, length, freq, amp=0.30):
+    """Pure sine an octave under the arp. Carries the weight the saw bass
+    cannot: a filtered saw has little energy below ~60 Hz once the resonant
+    low-pass has done its work."""
+    n = int(length * SR)
+    if n <= 0:
+        return
+    t = np.arange(n) / SR
+    wave = np.sin(2.0 * np.pi * freq * t)
+    e = env_ad(n, 0.012, 0.05, curve=0.10)
+    body = wave * e * amp
+    add(0, start, body)
+    add(1, start, body)
+
+
+def wobble_bass(start, length, freq, amp, cycles, depth=1.0, drive=2.6):
+    """Reese-style detuned saws through an LFO-swept resonant filter, then
+    waveshaped. This is the dubstep character: the growl comes from the
+    *filter movement plus saturation*, not from the raw waveform.
+
+    `cycles` is wobbles per bar, tempo-synced so the modulation lands on the
+    grid instead of drifting against the beat.
+    """
+    n = int(length * SR)
+    if n <= 0:
+        return
+    t = np.arange(n) / SR
+
+    # Reese: two saws detuned far enough to beat against each other, plus a
+    # square an octave down for body.
+    layers = np.zeros(n)
+    for ratio in (2.0 ** (-14.0 / 1200.0), 2.0 ** (14.0 / 1200.0)):
+        phase, inc = phase_ramp(freq * ratio, n)
+        layers += saw(phase, inc)
+    phase, inc = phase_ramp(freq * 0.5, n)
+    layers += pulse(phase, inc, 0.5) * 0.6
+    layers /= 2.6
+
+    # Tempo-synced LFO on cutoff. Skewed sine: slower open, faster close, which
+    # reads as a "wub" rather than a smooth siren.
+    lfo_phase = (t / BAR) * cycles
+    lfo = np.sin(2.0 * np.pi * lfo_phase)
+    lfo = np.sign(lfo) * np.abs(lfo) ** 0.65
+    cutoff = 105.0 + depth * 680.0 * (0.5 + 0.5 * lfo)
+
+    body = resonant_lowpass_mod(layers, cutoff, q=5.0)
+    body = np.tanh(body * drive) / math.tanh(drive)      # growl
+    # Strip the mud the saturation adds below the sub's territory.
+    b, a = signal.butter(2, 45 / (SR / 2), btype="high")
+    body = signal.lfilter(b, a, body)
+    body *= env_ad(n, 0.008, 0.04, curve=0.08) * amp
+
+    # Slight stereo movement so it does not sit dead centre against the sub.
+    add(0, start, body, 1.0)
+    add(1, start, body, 0.92)
+    add_send(start, body, 0.06)
+
+
 def kick(start):
     n = int(0.30 * SR)
     t = np.arange(n) / SR
@@ -281,6 +368,9 @@ def arrange():
         base = int(round(bar * BAR * SR))
 
         breakdown = 24 <= loop_bar < 28
+        # Heavy sections only: the intro stays clean synthwave so the low end
+        # arriving at bar 12 lands as a drop rather than as the default state.
+        wobble_in = (12 <= loop_bar < 24) or (32 <= loop_bar < 40)
         drums_in = loop_bar >= 4 and not breakdown
         kick_in = loop_bar >= 2 and not breakdown
         lead_in = (8 <= loop_bar < 24) or (28 <= loop_bar < 40)
@@ -298,6 +388,24 @@ def arrange():
                     attack=0.45, release=0.6, spread=0.35, curve=0.12,
                 )
 
+        # Sub bass: root of the chord, one long note per bar, under everything.
+        root = BASS_CHORDS[chord][0] - 12
+        if loop_bar >= 2:
+            sub_bass(base, BAR * 0.98, midi_hz(root),
+                     amp=0.20 if breakdown else (0.42 if wobble_in else 0.32))
+
+        # Wobble bass: the heavy sections. Wobble rate changes per bar so the
+        # figure moves instead of droning.
+        if wobble_in:
+            # One note per bar, and `cycles` is wobbles per bar, so the LFO
+            # phase maths inside wobble_bass lines up with the grid directly.
+            # (Splitting this into half-bar renders previously halved the rate.)
+            rate = WOBBLE_RATES[loop_bar % len(WOBBLE_RATES)]
+            wobble_bass(
+                base, BAR * 0.98, midi_hz(root + 12),
+                amp=0.26, cycles=rate, depth=1.0, drive=2.8,
+            )
+
         # Bass arp: the engine. Short, resonant, filter closing on each note.
         voicing = BASS_CHORDS[chord]
         for step in range(16):
@@ -307,8 +415,8 @@ def arrange():
             start = base + int(step * (BEAT / 4.0) * SR)
             supersaw(
                 start, BEAT / 4.0 * 0.95, midi_hz(note),
-                amp=0.26, voices=3, detune_cents=9.0,
-                cutoff=(2400.0, 520.0), q=3.2,
+                amp=0.19, voices=3, detune_cents=9.0,
+                cutoff=(2400.0, 620.0), q=3.2,
                 pan=0.0, send_amount=0.04,
                 attack=0.003, release=0.02, spread=0.10, curve=0.5,
             )
@@ -432,12 +540,12 @@ def main():
     mix[0] = 0.82 * signal.lfilter(b, a, mix[0]) + 0.18 * mix[0]
     mix[1] = 0.82 * signal.lfilter(b, a, mix[1]) + 0.18 * mix[1]
     # High-pass out subsonic energy that only eats headroom.
-    b, a = signal.butter(2, 28 / (SR / 2), btype="high")
+    b, a = signal.butter(2, 22 / (SR / 2), btype="high")
     mix[0] = signal.lfilter(b, a, mix[0])
     mix[1] = signal.lfilter(b, a, mix[1])
 
-    mix[0] = saturate(mix[0], 1.25)
-    mix[1] = saturate(mix[1], 1.25)
+    mix[0] = saturate(mix[0], 1.10)
+    mix[1] = saturate(mix[1], 1.10)
 
     # Keep the SECOND loop: it already contains the first loop's delay and
     # reverb tails, so its head sounds like a continuation, not a cold start.
