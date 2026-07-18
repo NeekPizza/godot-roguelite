@@ -37,12 +37,37 @@ makes a daily leaderboard habit-forming rather than exhausting.
   submitted. Dying is not a failure state that wastes your attempt — you still
   get a leaderboard entry. This matters: a punishing daily would kill retention.
 - **Win:** survive to 10:00. Awards a **+2000 clear bonus**, then the run ends.
-- There is **one attempt per day that counts** for the leaderboard (the first).
-  Additional runs are playable and scored locally but flagged "practice."
+- There is **exactly one ranked attempt per day.**
 
-**Why first-attempt-only:** it's the whole competitive premise. If you can retry
+### Ranked vs. practice
+
+Ranked attempts are **never consumed by accident.** Starting today's ranked run
+requires an explicit confirmation — *"Start today's ranked run? You get one per
+day."* Launching the game, poking around a menu, or misclicking can never burn
+it. Nothing auto-counts.
+
+Practice is unlimited and always available:
+
+| Mode | Seed | Ranked? | Availability |
+|---|---|---|---|
+| **Today — Ranked** | today (UTC) | Yes, submits to leaderboard | Once per day, behind explicit confirmation |
+| **Today — Practice** | today (UTC) | No | Only *after* the ranked attempt is used or forfeited |
+| **Archive** | any past day | No | Unlimited, any previous date |
+
+**Archive practice** lets a brand-new player learn the game on yesterday's seed
+— or any past seed — without ever touching today's ranked attempt. Past seeds
+are reproducible for free: the seed is a pure function of the date string, so
+the archive costs no storage and no server.
+
+Today's seed is *not* offered as practice before the ranked attempt is spent.
+Otherwise a player could rehearse the exact ranked run, which defeats the
+premise as thoroughly as unlimited retries would.
+
+**Why one ranked attempt:** it's the whole competitive premise. If you can retry
 50 times, the leaderboard measures free time, not skill. This is the single most
-important fairness rule in the game.
+important fairness rule in the game. The confirmation gate and the archive exist
+so that rule costs new players nothing — they protect the premise *and* the
+newcomer, rather than trading one against the other.
 
 ---
 
@@ -260,9 +285,9 @@ Recorded so these get re-proposed as *post-launch*, not smuggled into the build:
 | 0 | This document | Approved by Nick |
 | 1 | Vertical slice | Move, auto-attack, seeded Drifter waves, XP, level-up 3-choice, run ends → score |
 | 2 | Content + feel | 5 enemies, 6 upgrades, particles, screen shake, 7 SFX, difficulty ramp |
-| 3 | Daily seed + local scores | Determinism test passes; local high-score table |
+| 3 | Daily seed + local scores | Determinism test passes; local high-score table; **ranked-attempt bookkeeping** (one per UTC day, persisted, survives a mid-run quit) and **archive practice** on any past date |
 | 4 | Steam | GodotSteam 4.20 prebuilt GDExtension; leaderboard submit/fetch + achievements; **runs fine with Steam absent** |
-| 5 | Ship prep | Menus, settings, pause, controller, Windows export, release checklist |
+| 5 | Ship prep | Menus, settings, pause, controller, Windows export, release checklist. Includes the **ranked-run confirmation gate** and the archive date-picker UI |
 
 **Phase 1 is the real risk gate.** If the one-enemy one-weapon loop isn't fun to
 play for 10 minutes, no amount of Phase 2 content will save it. Evaluate

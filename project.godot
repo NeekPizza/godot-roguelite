@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Generated/maintained by hand — keep it small and readable.
+; Maintained by hand — keep it small and readable.
 
 config_version=5
 
@@ -7,7 +7,11 @@ config_version=5
 
 config/name="Daily Seed"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/run.tscn"
+
+[autoload]
+
+GameInput="*res://scripts/game_input.gd"
 
 [display]
 
@@ -15,6 +19,21 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[layer_names]
+
+2d_physics/layer_1="player"
+2d_physics/layer_2="enemy"
+2d_physics/layer_3="projectile"
+2d_physics/layer_4="pickup"
+
+[physics]
+
+; Fixed timestep is a hard requirement of the daily-seed determinism contract.
+; All gameplay runs in _physics_process. See docs/GDD.md section 9.
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=8
+2d/default_gravity=0.0
 
 [rendering]
 
