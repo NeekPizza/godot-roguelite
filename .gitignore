@@ -31,3 +31,9 @@ export_credentials.cfg
 # OS
 .DS_Store
 Thumbs.db
+
+# Music generator intermediate lives in build/ (ignored above); only the
+# encoded .ogg is committed under assets/.
+
+# Python venv for the asset generators (tools/)
+.venv/

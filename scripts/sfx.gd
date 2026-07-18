@@ -38,6 +38,14 @@ func _ready() -> void:
 		_voices.append(voice)
 
 
+## See music.gd: drop stream references before the engine's exit-time resource
+## check runs, otherwise shutdown reports leaked instances.
+func _exit_tree() -> void:
+	for voice in _voices:
+		voice.stop()
+		voice.stream = null
+
+
 func _process(delta: float) -> void:
 	_clock += delta
 

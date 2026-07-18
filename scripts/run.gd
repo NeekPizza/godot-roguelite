@@ -80,6 +80,7 @@ var _auto_pick := false
 var _screenshot_path := ""
 var _screenshot_after := 0.0
 var _godmode := false
+var _quit_on_end := false
 var _type_counts := {}
 
 
@@ -87,6 +88,10 @@ func _parse_test_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--auto-pick":
 			_auto_pick = true
+		elif arg == "--quit-on-end":
+			# Clean engine shutdown when the run finishes, instead of the abrupt
+			# --quit-after frame kill. Also the right exit path for CI.
+			_quit_on_end = true
 		elif arg == "--godmode":
 			# Lets an unattended run survive the whole difficulty ramp, which is
 			# the only way to exercise the late-tier enemy types headlessly.
@@ -125,6 +130,8 @@ func _ready() -> void:
 	_player.died.connect(_on_player_died)
 	_player.damaged.connect(_on_player_damaged)
 	_player.xp_collected.connect(_on_xp_collected)
+
+	Music.start()
 
 	_levelup_layer.hide()
 	_gameover_layer.hide()
@@ -368,6 +375,8 @@ func _end_run() -> void:
 	]
 	_gameover_layer.show()
 	Sfx.play("run_over")
+	if _quit_on_end:
+		get_tree().quit.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
 	print("[run] over survived=%s score=%d kills=%d xp=%d level=%d" % [_survived, _score(), _kills, _xp_collected, _level])
 
