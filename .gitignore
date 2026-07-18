@@ -1,0 +1,28 @@
+# Godot 4+ engine cache and generated files
+.godot/
+/android/
+
+# Import cache
+*.import
+
+# Exported builds
+/build/
+/builds/
+/export/
+*.exe
+*.pck
+*.zip
+*.dmg
+*.app/
+
+# Export credentials (NEVER commit — contains signing keys/passwords)
+export_credentials.cfg
+
+# Temp
+*.tmp
+*.tmp.*
+.tmp/
+
+# OS
+.DS_Store
+Thumbs.db
