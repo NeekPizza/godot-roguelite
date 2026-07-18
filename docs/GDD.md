@@ -126,7 +126,7 @@ a screen crowded with fifty entities.
 | **Drifter** | square | 20 | 90 | 10 | 1 | 10 | Walks straight at you |
 | **Swarmer** | small triangle | 8 | 175 | 6 | 1 | 6 | Fast and fragile; arrives in packs |
 | **Tank** | hexagon | 90 | 45 | 20 | 3 | 30 | Slow, brutal on contact |
-| **Shooter** | diamond | 25 | 70 | 8 | 2 | 20 | Holds ~320 px and fires every 2.2 s |
+| **Shooter** | diamond | 25 | 70 | 8 | 2 | 20 | Holds ~340 px and fires every 3.2 s |
 | **Splitter** | nested square | 40 | 70 | 12 | 2 | 20 | Bursts into 2 Swarmers on death |
 
 Enemies spawn **off-screen at the world edges** and walk inward. They never
@@ -151,8 +151,10 @@ Two rules that exist for determinism, not for feel:
 - Gems **persist for the whole run** (no despawn timer). Uncollected XP on the
   field is a deliberate risk/reward decision, not a punishment for looking away.
 
-**XP curve:** level *N* requires `5 + (N-1) * 4` XP.
-(L1→2 = 5, L2→3 = 9, L3→4 = 13, …) Roughly 12–16 levels in a full 10-min run.
+**XP curve:** level *N* requires `6 + (N-1) * 5` XP.
+(L1→2 = 6, L2→3 = 11, L3→4 = 16, …) Roughly 12–15 levels in a full 10-min run.
+Steeper than the Phase 1 curve, which handed out levels faster than the upgrades
+stayed meaningful once wave density went up.
 
 **On level-up:** the game **pauses**, presents **3 upgrade cards**, player picks
 one with mouse or keyboard/controller. No reroll, no skip in v1.
@@ -191,11 +193,11 @@ punishes players for playing well, and breaks seed comparability.
 
 | Time | Spawn interval | Enemies per spawn | Enemy HP mult |
 |---|---|---|---|
-| 0:00–2:00 | 1.20 s | 1 | 1.0× |
-| 2:00–4:00 | 0.90 s | 2 | 1.2× |
-| 4:00–6:00 | 0.70 s | 2 | 1.5× |
-| 6:00–8:00 | 0.55 s | 3 | 1.9× |
-| 8:00–10:00 | 0.40 s | 4 | 2.4× |
+| 0:00–2:00 | 1.00 s | 1 | 1.0× |
+| 2:00–4:00 | 0.80 s | 2 | 1.25× |
+| 4:00–6:00 | 0.62 s | 3 | 1.6× |
+| 6:00–8:00 | 0.48 s | 4 | 2.1× |
+| 8:00–10:00 | 0.34 s | 5 | 2.8× |
 
 Hard cap of **300 live enemies** — a performance guard rail. When the cap is
 hit, spawns are skipped (**not queued**; queueing would desync the seed).
@@ -204,7 +206,9 @@ Enemy **composition** ramps alongside the rate. Each tier carries a weighted
 type table: Drifters only until 2:00, then Swarmers, then Shooters at 4:00,
 Tanks at 6:00, and Splitters in the final two minutes. Every spawn consumes
 exactly three `spawn_rng` draws (edge, position, type) regardless of tier, so
-the stream stays predictable.
+the stream stays predictable. Shooters are deliberately the rarest of the
+mid-tier types (~10% of spawns): at higher weights the late game read as a wall
+of incoming fire rather than a crowd to out-manoeuvre.
 
 ---
 

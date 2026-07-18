@@ -16,17 +16,17 @@ const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 ## Difficulty tiers (GDD section 7). Ramps on elapsed time, never on player
 ## level. "types" is a weighted table; new enemy kinds phase in as the run goes.
 const TIERS := [
-	{"until": 120.0, "interval": 1.20, "count": 1, "hp_mult": 1.0,
+	{"until": 120.0, "interval": 1.00, "count": 1, "hp_mult": 1.0,
 	 "types": [["drifter", 1.00]]},
-	{"until": 240.0, "interval": 0.90, "count": 2, "hp_mult": 1.2,
-	 "types": [["drifter", 0.65], ["swarmer", 0.35]]},
-	{"until": 360.0, "interval": 0.70, "count": 2, "hp_mult": 1.5,
-	 "types": [["drifter", 0.45], ["swarmer", 0.35], ["shooter", 0.20]]},
-	{"until": 480.0, "interval": 0.55, "count": 3, "hp_mult": 1.9,
-	 "types": [["drifter", 0.30], ["swarmer", 0.30], ["shooter", 0.20], ["tank", 0.20]]},
-	{"until": 600.0, "interval": 0.40, "count": 4, "hp_mult": 2.4,
-	 "types": [["drifter", 0.22], ["swarmer", 0.28], ["shooter", 0.18],
-			   ["tank", 0.17], ["splitter", 0.15]]},
+	{"until": 240.0, "interval": 0.80, "count": 2, "hp_mult": 1.25,
+	 "types": [["drifter", 0.60], ["swarmer", 0.40]]},
+	{"until": 360.0, "interval": 0.62, "count": 3, "hp_mult": 1.6,
+	 "types": [["drifter", 0.46], ["swarmer", 0.42], ["shooter", 0.12]]},
+	{"until": 480.0, "interval": 0.48, "count": 4, "hp_mult": 2.1,
+	 "types": [["drifter", 0.28], ["swarmer", 0.32], ["shooter", 0.12], ["tank", 0.28]]},
+	{"until": 600.0, "interval": 0.34, "count": 5, "hp_mult": 2.8,
+	 "types": [["drifter", 0.20], ["swarmer", 0.30], ["shooter", 0.10],
+			   ["tank", 0.22], ["splitter", 0.18]]},
 ]
 
 ## A splitter bursts into this many children, at fixed offsets. Deliberately
@@ -245,7 +245,9 @@ func _edge_position(edge: int, along: float) -> Vector2:
 # --- XP and levelling --------------------------------------------------------
 
 func _xp_needed(level: int) -> int:
-	return 5 + (level - 1) * 4
+	# Steeper than Phase 1's 5 + 4(N-1). With the denser waves below, the old
+	# curve handed out levels faster than upgrades stayed meaningful.
+	return 6 + (level - 1) * 5
 
 
 func _on_xp_collected(amount: int) -> void:

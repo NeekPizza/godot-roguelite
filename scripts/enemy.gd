@@ -31,7 +31,7 @@ const TYPES := {
 		"hp": 25.0, "speed": 70.0, "damage": 8.0, "radius": 13.0,
 		"score": 20, "xp": 2, "color": Color(1.0, 0.25, 0.3),
 		"behavior": Behavior.KEEP_DISTANCE,
-		"preferred_range": 320.0, "shot_interval": 2.2,
+		"preferred_range": 340.0, "shot_interval": 3.2,
 	},
 	"splitter": {
 		"hp": 40.0, "speed": 70.0, "damage": 12.0, "radius": 16.0,
