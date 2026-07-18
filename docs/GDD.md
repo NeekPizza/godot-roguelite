@@ -1,9 +1,13 @@
 # Game Design Document — *Daily Seed* (working title)
 
+**Version 1.1** — endless model. (v1.0 was a fixed 10-minute run with a win
+state; that is removed, see sections 2, 7, 8 and 12.)
+
 **Genre:** Daily-seed survivors-like / score-attack roguelite
 **Engine:** Godot 4.7.1, GDScript, GL Compatibility renderer
 **Price point:** $1–5
-**Run length:** 10 minutes fixed
+**Run length:** Endless. A run ends only on death; a strong player should top
+out around 10–20 minutes.
 **The hook:** Every player in the world gets the *same run* each day. Compete on
 a global Steam leaderboard. No netcode, no servers.
 
@@ -18,26 +22,36 @@ a global Steam leaderboard. No netcode, no servers.
 ```
 Enter daily run  →  move + auto-attack  →  kill enemies  →  collect XP
       ↑                                                        ↓
-  compare score  ←  run ends (death or 10:00)  ←  level up (pick 1 of 3)
+  compare score  ←     run ends (death)      ←  level up (pick 1 of 3)
 ```
 
 Moment-to-moment: the player never presses an attack button. They **position**.
 All skill expression is in movement — kiting, funneling enemies into clusters,
 deciding when to grab a distant XP gem versus play safe.
 
-Session shape: one run is 10 minutes. A player who wants "one more go" is
-committing to a known, bounded chunk of time. That bounded commitment is what
-makes a daily leaderboard habit-forming rather than exhausting.
+Session shape: runs are open-ended but self-limiting — the difficulty ramp is
+unbounded, so every run ends, and most will land in the 5–20 minute band. The
+"one more go" impulse is served by the run being *short because you died*,
+not by a clock running out.
 
 ---
 
-## 2. Win / lose
+## 2. Run end and ranking
 
-- **Lose:** player HP reaches 0. Run ends immediately, score is kept and
-  submitted. Dying is not a failure state that wastes your attempt — you still
-  get a leaderboard entry. This matters: a punishing daily would kill retention.
-- **Win:** survive to 10:00. Awards a **+2000 clear bonus**, then the run ends.
+**There is no win state.** A run ends only when the player dies, and the
+difficulty ramp climbs without bound (section 7), so every run ends eventually.
+
+- **Death** ends the run immediately; the score stands and is submitted. Dying
+  is not a failure that wastes your attempt — it is simply how runs finish.
+- **Ranking is score-at-death.** Nobody "beats" the game. The leaderboard
+  spreads by *how deep you got*, which is what keeps a daily seed interesting
+  past the first week: there is always a deeper run.
 - There is **exactly one ranked attempt per day.**
+
+Removing the win state is what makes the leaderboard the point. With a fixed
+10:00 clear, every competent player converged on the same "cleared" result and
+the board degenerated into a tiebreak on kill efficiency. Endless means the
+score *is* the achievement.
 
 ### Ranked vs. practice
 
@@ -143,6 +157,46 @@ Two rules that exist for determinism, not for feel:
 
 ---
 
+## 5b. Bosses
+
+**One archetype in v1.0, deliberately.** It scales rather than multiplying into
+a bestiary — more boss types is the single easiest place for this project to
+bleed scope, and a scaling boss delivers the same pacing benefit for a fraction
+of the work.
+
+- **Appears at 3:00, then every 3 minutes**, forever.
+- **Does NOT end the run when killed.** It is a pace break and a depth marker,
+  not a win condition.
+- Worth a **large score chunk** (600 × appearance number) and a **guaranteed XP
+  payout** of 12 gems worth 3 each.
+- A slow, heavy octagon that walks at the player and fires an 8-shot radial
+  burst every 3.4 s.
+
+| Appearance | Time | HP | Contact dmg | Score |
+|---|---|---|---|---|
+| 1 | 3:00 | 700 | 25 | 600 |
+| 2 | 6:00 | 1,330 | 30 | 1,200 |
+| 3 | 9:00 | 2,527 | 37 | 1,800 |
+| 4 | 12:00 | 4,801 | 45 | 2,400 |
+| 5 | 15:00 | 9,122 | 55 | 3,000 |
+| 6 | 18:00 | 17,333 | 68 | 3,600 |
+
+HP scales ×1.9 per appearance, which looks aggressive until you account for how
+hard player DPS compounds through the upgrade pool — fire rate, damage,
+projectile count and pierce all multiply together. A gentler curve makes the
+boss trivial by its third appearance.
+
+### Determinism rules
+
+- **Boss timing is a fixed function of elapsed time**, never player-driven.
+- **Boss position is drawn from `spawn_rng`** at that fixed moment, exactly like
+  any other spawn, so it consumes the stream predictably.
+- **The burst pattern rotates by a constant per burst**, not by an RNG draw.
+  The boss fires on player-dependent timing, so any draw there would desync the
+  shared stream (the same rule as Splitter children, section 5).
+
+---
+
 ## 6. XP and level-up
 
 - Enemies drop **XP gems** worth 1–3 depending on type (see section 5). Gems are
@@ -188,46 +242,81 @@ choice to make.
 
 ## 7. Difficulty ramp
 
-Spawn pressure scales with elapsed time, not with player level — level-scaling
-punishes players for playing well, and breaks seed comparability.
+Spawn pressure is a **continuous, unbounded function of elapsed time** — not a
+tier table, and never a function of player level. Level-scaling would punish
+players for playing well and would break seed comparability.
 
-| Time | Spawn interval | Enemies per spawn | Enemy HP mult |
+All three curves are defined in `scripts/difficulty.gd`:
+
+| Quantity | Formula | Behaviour |
+|---|---|---|
+| Spawn interval | `0.16 + 0.84·e^(−t/300)` | Decays toward a 0.16 s floor |
+| Enemies per spawn | `1 + ⌊t/110⌋` | Linear, unbounded |
+| Enemy HP multiplier | `1 + 0.115·(t/60)^1.3` | Superlinear, unbounded |
+
+Sampled:
+
+| Time | Spawn interval | Per spawn | HP mult |
 |---|---|---|---|
-| 0:00–2:00 | 1.00 s | 1 | 1.0× |
-| 2:00–4:00 | 0.80 s | 2 | 1.25× |
-| 4:00–6:00 | 0.62 s | 3 | 1.6× |
-| 6:00–8:00 | 0.48 s | 4 | 2.1× |
-| 8:00–10:00 | 0.34 s | 5 | 2.8× |
+| 0:00 | 1.000 s | 1 | 1.00× |
+| 5:00 | 0.469 s | 3 | 1.93× |
+| 10:00 | 0.274 s | 6 | 3.29× |
+| 15:00 | 0.202 s | 9 | 4.89× |
+| 20:00 | 0.175 s | 11 | 6.65× |
+| 30:00 | 0.162 s | 17 | 10.57× |
+
+The interval floor exists so the spawn loop cannot be driven toward zero and eat
+the frame budget; past ~20 minutes growth comes from wave *size* and HP instead.
+At 20 minutes that is roughly 63 enemies per second arriving, against a live cap
+of **300** — which is where even a strong build should drown.
+
+Enemy **composition** also ramps continuously. Each type phases in over a window
+(Swarmers from 2:00, Shooters from 4:00, Tanks from 6:00, Splitters from 8:00)
+while the Drifter share decays from 100% toward ~15%. Shooters are held to ~10%
+of spawns: at higher weights the late game reads as a wall of incoming fire
+rather than a crowd to out-manoeuvre.
+
+Every spawn consumes exactly **three** `spawn_rng` draws (edge, position, type)
+regardless of elapsed time — the weight table always returns all five types in a
+fixed order, including zero-weight ones, so the stream stays predictable.
 
 Hard cap of **300 live enemies** — a performance guard rail. When the cap is
-hit, spawns are skipped (**not queued**; queueing would desync the seed).
-
-Enemy **composition** ramps alongside the rate. Each tier carries a weighted
-type table: Drifters only until 2:00, then Swarmers, then Shooters at 4:00,
-Tanks at 6:00, and Splitters in the final two minutes. Every spawn consumes
-exactly three `spawn_rng` draws (edge, position, type) regardless of tier, so
-the stream stays predictable. Shooters are deliberately the rarest of the
-mid-tier types (~10% of spawns): at higher weights the late game read as a wall
-of incoming fire rather than a crowd to out-manoeuvre.
+hit, spawns are skipped (**not queued**; queueing would desync the seed), but
+their RNG draws still happen.
 
 ---
 
 ## 8. Scoring
 
 ```
-score = (kills          × 10)
-      + (survival_secs  ×  5)
-      + (xp_collected   ×  2)
-      + (2000 if survived to 10:00 else 0)
+score = per-type kill values          (Drifter 10 … Tank 30, boss 600 × N)
+      + (survival_seconds  ×  5)
+      + (xp_collected      ×  2)
 ```
 
-A full clear lands roughly in the 25,000–35,000 range. Comfortably inside
-**int32**, which is what Steam leaderboards accept.
+**No clear bonus** — there is no clear. Kills dominate, so the board rewards
+aggressive efficient play rather than running in circles; survival time is
+weighted low enough that cowardice does not win, but present so that dying deep
+beats dying early.
 
-Kills dominate, so the leaderboard rewards *aggressive efficient play* rather
-than running in circles for 10 minutes. Survival time is weighted low enough
-that cowardice doesn't win, but present so a death at 9:30 still beats a death
-at 2:00.
+### Range and the int32 bound
+
+Steam leaderboards take **int32** (max 2,147,483,647), so an endless mode needs
+a headroom argument rather than an assumption:
+
+- The ramp bottoms out at a 0.16 s spawn interval against a 300-enemy live cap.
+- Assume an absurd sustained 60 kills/s at the richest per-type value (30) for a
+  **full hour**: that is ~6.5M from kills.
+- Survival adds 5/s (18k/hour) and XP 2 each — both trivial beside that.
+
+A deliberately absurd one-hour run therefore totals ~6.9M, about **0.3% of
+int32**. Real runs land in the low hundreds of thousands. Overflow is not a
+credible risk.
+
+Submitted scores are bounded against a **ceiling of 50,000,000** — far above any
+legitimate run, while still rejecting the obviously fabricated. This is a
+plausibility bound, not proof; the anti-cheat posture in section 10 is unchanged
+and deliberately minimal.
 
 ---
 
@@ -311,18 +400,25 @@ CC0 or self-generated only.
 
 ---
 
-## 12. Scope ledger — what is NOT in v1.0
+## 12. Scope ledger
 
-Recorded so these get re-proposed as *post-launch*, not smuggled into the build:
+**Now IN scope:**
+
+- **One scaling boss archetype** (section 5b) — moved in as part of v1.1.
+- **Endless play.** The fixed 10-minute run and its win state are *removed*, not
+  deferred: there is no clear condition to come back to.
+
+**Still OUT** — recorded so these get re-proposed as *post-launch*, not smuggled
+into the build:
 
 - Real-time multiplayer of any kind
 - Ghosts / replay racing (best v2 candidate)
 - Multiple characters or starting loadouts
 - Meta-progression / permanent unlocks between runs
-- Boss enemies
+- **Additional boss archetypes** (v1.0 ships exactly one, which scales)
 - Multiple maps or biomes
 - Weapon evolutions / combo crafting
-- Endless mode past 10:00
+- New weapons beyond Pulse
 
 ---
 
@@ -338,5 +434,5 @@ Recorded so these get re-proposed as *post-launch*, not smuggled into the build:
 | 5 | Ship prep | Menus, settings, pause, controller, Windows export, release checklist. Includes the **ranked-run confirmation gate** and the archive date-picker UI |
 
 **Phase 1 is the real risk gate.** If the one-enemy one-weapon loop isn't fun to
-play for 10 minutes, no amount of Phase 2 content will save it. Evaluate
+play for several minutes, no amount of Phase 2 content will save it. Evaluate
 honestly at that checkpoint before building more on top.

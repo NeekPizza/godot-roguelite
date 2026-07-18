@@ -3,31 +3,20 @@ extends Node2D
 ## Run orchestrator: wave scheduling, XP/levelling, scoring, run end.
 ## See docs/GDD.md sections 6-9.
 
-const RUN_DURATION := 600.0  # 10 minutes
+## ENDLESS: there is no run duration and no win state. A run ends only on
+## death. Difficulty is a continuous function of elapsed time (difficulty.gd)
+## and keeps climbing without bound.
 const ENEMY_CAP := 300
-const CLEAR_BONUS := 2000
-
-const SCORE_PER_SECOND := 5
-const SCORE_PER_XP := 2
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
+const BOSS_SCENE := preload("res://scenes/boss.tscn")
 
-## Difficulty tiers (GDD section 7). Ramps on elapsed time, never on player
-## level. "types" is a weighted table; new enemy kinds phase in as the run goes.
-const TIERS := [
-	{"until": 120.0, "interval": 1.00, "count": 1, "hp_mult": 1.0,
-	 "types": [["drifter", 1.00]]},
-	{"until": 240.0, "interval": 0.80, "count": 2, "hp_mult": 1.25,
-	 "types": [["drifter", 0.60], ["swarmer", 0.40]]},
-	{"until": 360.0, "interval": 0.62, "count": 3, "hp_mult": 1.6,
-	 "types": [["drifter", 0.46], ["swarmer", 0.42], ["shooter", 0.12]]},
-	{"until": 480.0, "interval": 0.48, "count": 4, "hp_mult": 2.1,
-	 "types": [["drifter", 0.28], ["swarmer", 0.32], ["shooter", 0.12], ["tank", 0.28]]},
-	{"until": 600.0, "interval": 0.34, "count": 5, "hp_mult": 2.8,
-	 "types": [["drifter", 0.20], ["swarmer", 0.30], ["shooter", 0.10],
-			   ["tank", 0.22], ["splitter", 0.18]]},
-]
+## Guaranteed XP payout when a boss dies, dropped at fixed ring offsets — no
+## RNG, because bosses die on player-dependent timing.
+const BOSS_GEM_COUNT := 12
+const BOSS_GEM_VALUE := 3
+const BOSS_GEM_RADIUS := 62.0
 
 ## A splitter bursts into this many children, at fixed offsets. Deliberately
 ## NOT random: splitters die on player-dependent timing, so drawing from
@@ -69,13 +58,14 @@ var _stacks := {}
 var _kills := 0
 var _kill_score := 0
 var _xp_collected := 0
-var _survived := false
+var _next_boss := 1
+var _bosses_killed := 0
 
-## Headless test hooks, passed after a `--` separator:
-##   godot --headless -- --run-seconds=20 --auto-pick
-## `--auto-pick` always takes card 0, which keeps a headless run deterministic
-## and unattended. Phase 3's determinism test builds on these.
-var _run_duration := RUN_DURATION
+## Headless test hooks, passed after a `--` separator. See docs/TESTING.md.
+## `--run-seconds` is gone: with no fixed run length there is nothing to shorten.
+## `--time-scale` compresses the ramp instead, and `--max-seconds` ends the run.
+var _time_scale := 1.0
+var _max_seconds := 0.0
 var _auto_pick := false
 var _screenshot_path := ""
 var _screenshot_after := 0.0
@@ -96,9 +86,15 @@ func _parse_test_args() -> void:
 			# Lets an unattended run survive the whole difficulty ramp, which is
 			# the only way to exercise the late-tier enemy types headlessly.
 			_godmode = true
-		elif arg.begins_with("--run-seconds="):
-			_run_duration = float(arg.split("=")[1])
-			print("[run] test override: duration=%.1fs" % _run_duration)
+		elif arg.begins_with("--time-scale="):
+			# Compresses the difficulty ramp so late-game content is reachable
+			# unattended. Enemy movement stays real-time, so this distorts feel;
+			# it is for exercising spawn/boss logic, not for judging balance.
+			_time_scale = float(arg.split("=")[1])
+			print("[run] test override: time-scale=%.2fx" % _time_scale)
+		elif arg.begins_with("--max-seconds="):
+			_max_seconds = float(arg.split("=")[1])
+			print("[run] test override: max-seconds=%.1f" % _max_seconds)
 		elif arg.begins_with("--screenshot="):
 			# "--screenshot=/tmp/shot.png@12" -> capture 12s in.
 			var parts := arg.split("=")[1].split("@")
@@ -143,13 +139,16 @@ func _physics_process(delta: float) -> void:
 	if _state != State.RUNNING:
 		return
 
-	_elapsed += delta
-	if _elapsed >= _run_duration:
-		_survived = true
+	# Endless: the only exit from RUNNING is death. --max-seconds is a test
+	# harness lever, not a game rule.
+	var step := delta * _time_scale
+	_elapsed += step
+	if _max_seconds > 0.0 and _elapsed >= _max_seconds:
 		_end_run()
 		return
 
-	_schedule_waves(delta)
+	_check_boss_schedule()
+	_schedule_waves(step)
 	_update_hud()
 
 
@@ -184,23 +183,15 @@ func _capture_screenshot(path: String) -> void:
 
 # --- Waves -------------------------------------------------------------------
 
-func _current_tier() -> Dictionary:
-	# Scaled by run length so a shortened test run still walks the whole ramp.
-	var progress := _elapsed / _run_duration * RUN_DURATION
-	for tier in TIERS:
-		if progress < tier["until"]:
-			return tier
-	return TIERS[TIERS.size() - 1]
-
-
 func _schedule_waves(delta: float) -> void:
-	var tier := _current_tier()
 	_spawn_timer -= delta
 	if _spawn_timer > 0.0:
 		return
-	_spawn_timer += tier["interval"]
+	_spawn_timer += Difficulty.spawn_interval(_elapsed)
 
-	for i in tier["count"]:
+	var weights := Difficulty.type_weights(_elapsed)
+	var hp_multiplier := Difficulty.hp_multiplier(_elapsed)
+	for i in Difficulty.spawn_count(_elapsed):
 		# Draw from spawn_rng UNCONDITIONALLY, before the cap check, and always
 		# draw exactly three values regardless of tier.
 		#
@@ -213,7 +204,33 @@ func _schedule_waves(delta: float) -> void:
 		var roll := _spawn_rng.randf()
 		if _enemies.get_child_count() >= ENEMY_CAP:
 			continue
-		_spawn_enemy(_pick_type(tier["types"], roll), _edge_position(edge, along), tier["hp_mult"])
+		_spawn_enemy(_pick_type(weights, roll), _edge_position(edge, along), hp_multiplier)
+
+
+## Bosses arrive on a FIXED time schedule (difficulty.gd), never a player-driven
+## one, and draw their position from spawn_rng like any other spawn. A `while`
+## rather than an `if` so a large --time-scale step cannot skip an appearance
+## and desync the stream.
+func _check_boss_schedule() -> void:
+	while _elapsed >= Difficulty.boss_time(_next_boss):
+		var edge := _spawn_rng.randi_range(0, 3)
+		var along := _spawn_rng.randf()
+		_spawn_boss(_next_boss, _edge_position(edge, along))
+		_next_boss += 1
+
+
+func _spawn_boss(boss_index: int, at: Vector2) -> void:
+	var boss := BOSS_SCENE.instantiate()
+	boss.position = at
+	boss.setup(boss_index)
+	boss.shot_parent = _enemy_shots
+	boss.killed.connect(_on_boss_killed)
+	_enemies.add_child(boss)
+	Sfx.play("level_up", -2.0)   # stand-in sting until Phase 5 audio pass
+	_fx.add_shake(6.0)
+	print("[run] BOSS %d at %s (hp %.0f, dmg %.0f)" % [
+		boss_index, _format_time(_elapsed),
+		Difficulty.boss_hp(boss_index), Difficulty.boss_damage(boss_index)])
 
 
 ## Weighted pick driven by an already-drawn roll, so the caller controls exactly
@@ -318,15 +335,10 @@ func _on_upgrade_chosen(upgrade_id: String) -> void:
 
 # --- Scoring and run end -----------------------------------------------------
 
+## Per-type kill values (a Tank is 30, a Swarmer 6) plus survival and XP. No
+## clear bonus: there is no clear. See score.gd for the int32 headroom analysis.
 func _score() -> int:
-	# Per-type score values, not a flat rate: a tank is worth 30 and a swarmer 6,
-	# so the board rewards fighting the dangerous things.
-	var score := _kill_score
-	score += int(_elapsed) * SCORE_PER_SECOND
-	score += _xp_collected * SCORE_PER_XP
-	if _survived:
-		score += CLEAR_BONUS
-	return score
+	return Score.total(_kill_score, _elapsed, _xp_collected)
 
 
 func _on_enemy_killed(enemy: Area2D) -> void:
@@ -360,8 +372,28 @@ func _split(parent_enemy: Area2D) -> void:
 		_spawn_enemy.call_deferred(child_type, at, 1.0)
 
 
+## Killing a boss does NOT end the run — it is a pace break and a depth marker.
+func _on_boss_killed(boss: Area2D) -> void:
+	_bosses_killed += 1
+	_kill_score += int(boss.score_value)
+
+	# Guaranteed XP at fixed offsets, so the payout cannot vary between players.
+	for i in BOSS_GEM_COUNT:
+		var angle := TAU * float(i) / float(BOSS_GEM_COUNT)
+		var gem := XP_GEM_SCENE.instantiate()
+		gem.position = Arena.clamp_position(
+			boss.position + Vector2(BOSS_GEM_RADIUS, 0.0).rotated(angle), 12.0)
+		gem.value = BOSS_GEM_VALUE
+		_gems.add_child.call_deferred(gem)
+
+	_fx.burst(boss.position, boss.COLOR, 90, 340.0)
+	_fx.add_shake(12.0)
+	Sfx.play("enemy_death", -2.0)
+	print("[run] boss %d down at %s (+%d score)" % [
+		boss.index, _format_time(_elapsed), boss.score_value])
+
+
 func _on_player_died() -> void:
-	_survived = false
 	_end_run()
 
 
@@ -377,20 +409,21 @@ func _end_run() -> void:
 	_state = State.OVER
 	get_tree().paused = true
 
-	var headline := "RUN CLEARED" if _survived else "YOU DIED"
-	_gameover_label.text = "%s\n\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nclear bonus  %d\n\npress R to restart" % [
-		headline, _score(),
+	_gameover_label.text = "YOU DIED\n\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to restart" % [
+		_format_time(_elapsed), _score(),
 		_kills, _kill_score,
-		_format_time(_elapsed), SCORE_PER_SECOND, int(_elapsed) * SCORE_PER_SECOND,
-		_xp_collected, SCORE_PER_XP, _xp_collected * SCORE_PER_XP,
-		CLEAR_BONUS if _survived else 0,
+		_format_time(_elapsed), Score.PER_SECOND, int(_elapsed) * Score.PER_SECOND,
+		_xp_collected, Score.PER_XP, _xp_collected * Score.PER_XP,
+		_bosses_killed,
 	]
 	_gameover_layer.show()
 	Sfx.play("run_over")
 	if _quit_on_end:
 		_quit_cleanly.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
-	print("[run] over survived=%s score=%d kills=%d xp=%d level=%d" % [_survived, _score(), _kills, _xp_collected, _level])
+	print("[run] over time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
+		_format_time(_elapsed), _score(), _kills, _xp_collected, _level,
+		_bosses_killed, Score.is_plausible(_score())])
 
 
 # --- HUD ---------------------------------------------------------------------
@@ -400,7 +433,7 @@ func _format_time(seconds: float) -> String:
 
 
 func _update_hud() -> void:
-	_timer_label.text = _format_time(maxf(0.0, _run_duration - _elapsed))
+	_timer_label.text = _format_time(_elapsed)   # counts UP; endless
 	_score_label.text = "SCORE %d" % _score()
 	_level_label.text = "LV %d" % _level
 	_hp_bar.value = _player.hp

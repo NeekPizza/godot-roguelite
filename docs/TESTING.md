@@ -15,7 +15,8 @@ upgrade cards, which makes automated checks impossible otherwise.
 
 | Flag | Effect |
 |---|---|
-| `--run-seconds=N` | Shortens the run to N seconds. The difficulty ramp is **scaled**, not truncated, so a short run still walks the whole curve from tier 1 to tier 5. |
+| `--time-scale=X` | Multiplies elapsed time, compressing the difficulty ramp so late-game content and later bosses are reachable unattended. Enemy *movement* stays real-time, so this distorts feel — use it to exercise spawn/boss logic, not to judge balance. |
+| `--max-seconds=N` | Ends the run at N elapsed seconds. Purely a harness lever: the game itself is endless and has no time limit. |
 | `--auto-pick` | Auto-selects card 0 at every level-up. Without it, a headless run pauses forever at the first level-up waiting for input that will never arrive. |
 | `--godmode` | Player takes no damage. The only way to exercise the late-tier enemy types unattended — an idle run dies in tier 1-2 and never sees Tanks, Shooters or Splitters spawn. |
 | `--quit-on-end` | Releases audio then calls `get_tree().quit()` when the run finishes. Prefer this over `--quit-after` in CI — it exits on a run boundary rather than mid-frame. |
@@ -24,14 +25,14 @@ upgrade cards, which makes automated checks impossible otherwise.
 Examples:
 
 ```bash
-# 30-second unattended smoke run
-godot --headless --quit-after 3600 -- --run-seconds=30 --auto-pick
+# Short unattended smoke run
+godot --headless -- --max-seconds=90 --auto-pick --quit-on-end
 
-# Walk the entire difficulty ramp, all five enemy types, unattended
-godot --headless --quit-after 40000 -- --run-seconds=60 --auto-pick --godmode
+# Walk deep into the endless ramp, all five enemy types plus several bosses
+godot --headless -- --time-scale=10 --max-seconds=900 --auto-pick --godmode --quit-on-end
 
 # Capture the level-up screen 20s in
-godot --quit-after 8000 -- --run-seconds=30 --screenshot=/tmp/shot.png@20
+godot --quit-after 8000 -- --time-scale=6 --screenshot=/tmp/shot.png@20
 ```
 
 ### Gotcha: `--quit-after` counts rendered frames, not seconds
@@ -45,8 +46,8 @@ timing a screenshot, or the process exits before the capture fires.
 Two runs of the same seed with identical inputs must produce identical output:
 
 ```bash
-godot --headless --quit-after 3600 -- --run-seconds=30 --auto-pick 2>&1 | grep '^\[run\]' > /tmp/d1.log
-godot --headless --quit-after 3600 -- --run-seconds=30 --auto-pick 2>&1 | grep '^\[run\]' > /tmp/d2.log
+godot --headless -- --time-scale=10 --max-seconds=900 --auto-pick --godmode --quit-on-end 2>&1 | grep '^\[run\]' > /tmp/d1.log
+godot --headless -- --time-scale=10 --max-seconds=900 --auto-pick --godmode --quit-on-end 2>&1 | grep '^\[run\]' > /tmp/d2.log
 diff /tmp/d1.log /tmp/d2.log && echo DETERMINISTIC
 ```
 
