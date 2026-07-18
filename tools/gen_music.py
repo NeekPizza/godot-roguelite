@@ -59,9 +59,14 @@ PAD_CHORDS = {
 }
 ARP_FIGURE = [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 1, 2, 1, 2]
 
-# Wobbles per bar, cycled bar to bar. Mixing 1/8, 1/4 and 1/16 rates keeps the
-# bass figure from droning on one note value.
-WOBBLE_RATES = [8, 8, 4, 16, 8, 4, 16, 8]
+# 808 figure: (beat, length_in_beats, semitones_from_root, glide_from_semitones).
+# Syncopated rather than on-grid, and the last note glides up a fifth — the
+# pitch slide is what makes an 808 read as trap rather than as a plain sub.
+TRAP_808_PATTERN = [
+    (0.00, 1.75, 0, None),
+    (1.75, 0.75, 0, -5),
+    (2.75, 1.25, 7, 0),
+]
 
 LEAD_PHRASE = [
     (0, 0.0, 1.5, 69), (0, 1.5, 0.5, 72), (0, 2.0, 1.0, 76), (0, 3.0, 1.0, 74),
@@ -276,47 +281,44 @@ def sub_bass(start, length, freq, amp=0.30):
     add(1, start, body)
 
 
-def wobble_bass(start, length, freq, amp, cycles, depth=1.0, drive=2.6):
-    """Reese-style detuned saws through an LFO-swept resonant filter, then
-    waveshaped. This is the dubstep character: the growl comes from the
-    *filter movement plus saturation*, not from the raw waveform.
+def bass_808(start, length, freq, amp=0.55, glide_from=None,
+             glide_time=0.085, drive=1.7):
+    """808-style sub: a sine with a pitch glide, a long exponential tail, and
+    just enough saturation to be audible on speakers with no low end.
 
-    `cycles` is wobbles per bar, tempo-synced so the modulation lands on the
-    grid instead of drifting against the beat.
+    This replaces the earlier Reese wobble. A wobble's character comes from
+    fast filter movement, which reads as aggressive by design; an 808 carries
+    the same low-end weight through sustain and glide instead, which sits far
+    better under gameplay audio.
     """
     n = int(length * SR)
     if n <= 0:
         return
     t = np.arange(n) / SR
 
-    # Reese: two saws detuned far enough to beat against each other, plus a
-    # square an octave down for body.
-    layers = np.zeros(n)
-    for ratio in (2.0 ** (-14.0 / 1200.0), 2.0 ** (14.0 / 1200.0)):
-        phase, inc = phase_ramp(freq * ratio, n)
-        layers += saw(phase, inc)
-    phase, inc = phase_ramp(freq * 0.5, n)
-    layers += pulse(phase, inc, 0.5) * 0.6
-    layers /= 2.6
+    if glide_from is not None and glide_from > 0.0:
+        # Glide in pitch (log) space, not linear Hz, so it sounds even.
+        progress = np.minimum(t / glide_time, 1.0)
+        freq_curve = glide_from * (freq / glide_from) ** progress
+    else:
+        freq_curve = np.full(n, freq)
 
-    # Tempo-synced LFO on cutoff. Skewed sine: slower open, faster close, which
-    # reads as a "wub" rather than a smooth siren.
-    lfo_phase = (t / BAR) * cycles
-    lfo = np.sin(2.0 * np.pi * lfo_phase)
-    lfo = np.sign(lfo) * np.abs(lfo) ** 0.65
-    cutoff = 105.0 + depth * 680.0 * (0.5 + 0.5 * lfo)
+    wave = np.sin(2.0 * np.pi * np.cumsum(freq_curve) / SR)
 
-    body = resonant_lowpass_mod(layers, cutoff, q=5.0)
-    body = np.tanh(body * drive) / math.tanh(drive)      # growl
-    # Strip the mud the saturation adds below the sub's territory.
-    b, a = signal.butter(2, 45 / (SR / 2), btype="high")
-    body = signal.lfilter(b, a, body)
-    body *= env_ad(n, 0.008, 0.04, curve=0.08) * amp
+    env = np.exp(-t * (2.4 / max(0.15, length)))
+    attack = max(1, int(0.006 * SR))
+    env[:attack] *= np.linspace(0.0, 1.0, attack)
+    tail = max(1, int(0.025 * SR))
+    env[-tail:] *= np.linspace(1.0, 0.0, tail)   # no click at note end
 
-    # Slight stereo movement so it does not sit dead centre against the sub.
-    add(0, start, body, 1.0)
-    add(1, start, body, 0.92)
-    add_send(start, body, 0.06)
+    body = np.tanh(wave * drive) / math.tanh(drive)
+    # Keep it round: the saturation's upper harmonics would otherwise clutter
+    # the same midrange the shoot/hit SFX live in.
+    b, a = signal.butter(2, 320 / (SR / 2), btype="low")
+    body = signal.lfilter(b, a, body) * env * amp
+
+    add(0, start, body)
+    add(1, start, body)
 
 
 def kick(start):
@@ -344,18 +346,34 @@ def snare(start):
     add_send(start, out, 0.42)
 
 
-def hat(start, open_hat=False):
+def hat(start, open_hat=False, velocity=1.0):
     n = int((0.16 if open_hat else 0.040) * SR)
     t = np.arange(n) / SR
     noise = rng.uniform(-1.0, 1.0, n)
     b, a = signal.butter(2, 7000 / (SR / 2), btype="high")
     noise = signal.lfilter(b, a, noise)
     out = noise * np.exp(-t * (22.0 if open_hat else 85.0))
-    out *= 0.13 if open_hat else 0.10
+    out *= (0.13 if open_hat else 0.10) * velocity
     add(0, start, out, 0.82)
     add(1, start, out, 1.0)
     if open_hat:
         add_send(start, out, 0.25)
+
+
+def trap_hats(base, roll=False):
+    """16th-note hats with accented 8ths, and an optional 32nd-note roll on the
+    last beat. The roll is the clearest trap signifier and costs nothing."""
+    for step in range(16):
+        at = base + int(step * (BEAT / 4.0) * SR)
+        if roll and step >= 12:
+            continue                      # the roll takes over the last beat
+        velocity = 1.0 if step % 4 == 0 else (0.62 if step % 2 == 0 else 0.42)
+        hat(at, open_hat=False, velocity=velocity)
+    if roll:
+        # 8 x 32nd notes swelling into the downbeat.
+        for i in range(8):
+            at = base + int((3.0 + i * 0.125) * BEAT * SR)
+            hat(at, open_hat=False, velocity=0.35 + 0.075 * i)
 
 
 # --- Arrangement -------------------------------------------------------------
@@ -368,9 +386,10 @@ def arrange():
         base = int(round(bar * BAR * SR))
 
         breakdown = 24 <= loop_bar < 28
-        # Heavy sections only: the intro stays clean synthwave so the low end
-        # arriving at bar 12 lands as a drop rather than as the default state.
-        wobble_in = (12 <= loop_bar < 24) or (32 <= loop_bar < 40)
+        # Trap-flavoured sections: 808 glide bass and 16th hats replace the
+        # sustained sub. The intro stays clean synthwave so the low end
+        # arriving at bar 12 still lands as a shift rather than the default.
+        trap_in = (12 <= loop_bar < 24) or (32 <= loop_bar < 40)
         drums_in = loop_bar >= 4 and not breakdown
         kick_in = loop_bar >= 2 and not breakdown
         lead_in = (8 <= loop_bar < 24) or (28 <= loop_bar < 40)
@@ -388,23 +407,20 @@ def arrange():
                     attack=0.45, release=0.6, spread=0.35, curve=0.12,
                 )
 
-        # Sub bass: root of the chord, one long note per bar, under everything.
         root = BASS_CHORDS[chord][0] - 12
-        if loop_bar >= 2:
+        if trap_in:
+            # 808 pattern: syncopated, with glides into the offbeat notes.
+            for beat, length, semitones, glide in TRAP_808_PATTERN:
+                target = midi_hz(root + semitones)
+                supply = midi_hz(root + glide) if glide is not None else None
+                bass_808(
+                    base + int(beat * BEAT * SR), length * BEAT,
+                    target, amp=0.52, glide_from=supply,
+                )
+        elif loop_bar >= 2:
+            # Sustained sub elsewhere, so the low end never fully disappears.
             sub_bass(base, BAR * 0.98, midi_hz(root),
-                     amp=0.20 if breakdown else (0.42 if wobble_in else 0.32))
-
-        # Wobble bass: the heavy sections. Wobble rate changes per bar so the
-        # figure moves instead of droning.
-        if wobble_in:
-            # One note per bar, and `cycles` is wobbles per bar, so the LFO
-            # phase maths inside wobble_bass lines up with the grid directly.
-            # (Splitting this into half-bar renders previously halved the rate.)
-            rate = WOBBLE_RATES[loop_bar % len(WOBBLE_RATES)]
-            wobble_bass(
-                base, BAR * 0.98, midi_hz(root + 12),
-                amp=0.26, cycles=rate, depth=1.0, drive=2.8,
-            )
+                     amp=0.20 if breakdown else 0.32)
 
         # Bass arp: the engine. Short, resonant, filter closing on each note.
         voicing = BASS_CHORDS[chord]
@@ -448,6 +464,9 @@ def arrange():
                     pan=0.45, send_amount=0.42,
                     attack=0.012, release=0.12,
                 )
+
+        if drums_in and trap_in:
+            trap_hats(base, roll=(loop_bar % 4 == 3))
 
         for beat_index in range(4):
             at = base + int(beat_index * BEAT * SR)

@@ -24,7 +24,7 @@ authoring the music ourselves.
   **License:** owned outright — safe for commercial release
   **Verified:** 2026-07-18 — no sample material, no third-party audio, no
   external track used as input. Every waveform is synthesised from oscillators
-  and filtered noise, including the sub and wobble bass. The composition
+  and filtered noise, including the sub and 808 bass. The composition
   (A minor, i–VI–III–VII, 112 BPM) is authored in the generator source.
   **Note:** the intermediate `build/synthwave_loop.wav` is an audition artifact
   and is not committed; only the encoded `.ogg` ships.
