@@ -11,6 +11,14 @@ const RADIUS := 14.0
 const IFRAME_DURATION := 0.5
 const SPREAD_RADIANS := 0.18
 
+## Hard ceiling on pickup radius, enforced regardless of how upgrades stack.
+##
+## Without it, compounding Magnetism grows the radius geometrically until it
+## covers the world and XP collection stops being a decision — gems just fall
+## in. 200px is a quarter of the screen height and ~6% of the world's shorter
+## axis, so collecting still means going and getting it.
+const MAX_PICKUP_RADIUS := 200.0
+
 const COLOR_BODY := Color(0.25, 0.95, 1.0)
 const COLOR_HURT := Color(1.0, 0.35, 0.45)
 
@@ -18,7 +26,11 @@ const COLOR_HURT := Color(1.0, 0.35, 0.45)
 var max_hp := 100.0
 var hp := 100.0
 var move_speed := 220.0
-var pickup_radius := 60.0
+# Setter-enforced so the ceiling holds no matter what writes to it — a future
+# upgrade, pickup, or debug tweak cannot route around it.
+var pickup_radius := 60.0:
+	set(value):
+		pickup_radius = minf(value, MAX_PICKUP_RADIUS)
 var damage := 10.0
 var fire_rate := 2.0
 var projectile_count := 1

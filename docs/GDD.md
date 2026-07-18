@@ -158,7 +158,15 @@ one with mouse or keyboard/controller. No reroll, no skip in v1.
 | Split Shot | +1 projectile per volley | 3 |
 | Piercing | +1 pierce | 3 |
 | Kinetics | +15% move speed | 4 |
-| Magnetism | +40% pickup radius | 4 |
+| Magnetism | +30 px pickup radius | 4 |
+
+**Pickup radius is hard-capped at 200 px**, enforced in the player's stat setter
+rather than in the upgrade that happens to raise it. Magnetism is additive
+(+30 px flat, 4 stacks → 180 px) precisely so the design maximum sits *under*
+the ceiling by construction. A percentage bonus compounds — 60 × 1.4⁴ = 230 px,
+and worse with any future source — which would eventually blanket the world and
+turn XP collection from a movement decision into an automatic sweep. The whole
+risk/reward of leaving gems on the field depends on that not happening.
 
 When an upgrade hits max stacks it leaves the pool. If fewer than 3 upgrades
 remain available, backfill with a **+10 HP heal** card so there is always a

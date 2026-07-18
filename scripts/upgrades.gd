@@ -12,7 +12,10 @@ const POOL := [
 	{"id": "split",     "name": "Split Shot",  "desc": "+1 projectile",    "max": 3},
 	{"id": "pierce",    "name": "Piercing",    "desc": "+1 pierce",        "max": 3},
 	{"id": "kinetics",  "name": "Kinetics",    "desc": "+15% move speed",  "max": 4},
-	{"id": "magnetism", "name": "Magnetism",   "desc": "+40% pickup range","max": 4},
+	# Additive, not multiplicative. A percentage compounds: 60px * 1.4^4 = 230px
+	# and it only got worse with more stacks. Flat +30 caps out at 60+120=180,
+	# which sits under MAX_PICKUP_RADIUS by design rather than by luck.
+	{"id": "magnetism", "name": "Magnetism",   "desc": "+30 pickup range", "max": 4},
 ]
 
 const HEAL_CARD := {"id": HEAL_ID, "name": "Repair", "desc": "+10 HP", "max": -1}
@@ -53,6 +56,6 @@ static func apply(upgrade_id: String, player: Node) -> void:
 		"kinetics":
 			player.move_speed *= 1.15
 		"magnetism":
-			player.pickup_radius *= 1.40
+			player.pickup_radius += 30.0
 		HEAL_ID:
 			player.heal(10.0)
