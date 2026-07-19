@@ -49,3 +49,15 @@ func _draw() -> void:
 	# which matters on a screen already full of solid shapes.
 	draw_arc(Vector2.ZERO, radius * breathe, 0.0, TAU, 28, colour, 3.0)
 	draw_arc(Vector2.ZERO, radius * 0.55 * breathe, 0.0, TAU, 20, Color(colour, 0.75), 2.5)
+
+	# Name on the floor. A ring alone tells you something is there, not whether
+	# it is worth the detour — and the detour is the entire point of a drop.
+	var label: String = _config.get("name", drop_id)
+	var font := ThemeDB.fallback_font
+	var size := 15
+	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var origin := Vector2(-width * 0.5, radius + 22.0)
+	# Dark backing so it stays legible over the grid and over corpses.
+	draw_rect(Rect2(origin + Vector2(-5.0, -size), Vector2(width + 10.0, size + 7.0)),
+		Color(0.02, 0.02, 0.05, 0.72))
+	draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, colour)

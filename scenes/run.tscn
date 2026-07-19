@@ -1,10 +1,26 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/run.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/world_bounds.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/fx.gd" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/settings_panel.tscn" id="5"]
+
+[sub_resource type="StyleBoxFlat" id="CardBox"]
+bg_color = Color(0.09, 0.1, 0.15, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.29, 0.42, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
 
 [sub_resource type="StyleBoxFlat" id="BarBg"]
 bg_color = Color(1, 1, 1, 0.09)
@@ -110,15 +126,13 @@ max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="BuffLabel" type="Label" parent="HUD/Root"]
-anchor_right = 1.0
-offset_left = 470.0
-offset_top = 80.0
-offset_right = -16.0
-offset_bottom = 102.0
-theme_override_colors/font_color = Color(0.75, 0.55, 1, 1)
-theme_override_font_sizes/font_size = 15
-text = ""
+[node name="BuffList" type="VBoxContainer" parent="HUD/Root"]
+offset_left = 16.0
+offset_top = 134.0
+offset_right = 330.0
+offset_bottom = 300.0
+mouse_filter = 2
+theme_override_constants/separation = 4
 
 [node name="ComboLabel" type="Label" parent="HUD/Root"]
 anchor_left = 1.0
@@ -191,19 +205,171 @@ text = "LEVEL UP"
 theme_override_constants/separation = 20
 
 [node name="Card0" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(250, 168)
-theme_override_font_sizes/font_size = 18
-text = "-"
+custom_minimum_size = Vector2(300, 220)
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/normal = SubResource("CardBox")
+theme_override_styles/hover = SubResource("CardBox")
+theme_override_styles/pressed = SubResource("CardBox")
+theme_override_styles/disabled = SubResource("CardBox")
+text = ""
+
+[node name="Body" type="MarginContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Lines" type="VBoxContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0/Body"]
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Tag" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.63, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+text = "TAG"
+
+[node name="Name" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0/Body/Lines"]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+text = "Name"
+
+[node name="Desc" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.94, 1)
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
+text = "Desc"
+
+[node name="Evolve" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card0/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.25, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+text = ""
 
 [node name="Card1" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(250, 168)
-theme_override_font_sizes/font_size = 18
-text = "-"
+custom_minimum_size = Vector2(300, 220)
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/normal = SubResource("CardBox")
+theme_override_styles/hover = SubResource("CardBox")
+theme_override_styles/pressed = SubResource("CardBox")
+theme_override_styles/disabled = SubResource("CardBox")
+text = ""
+
+[node name="Body" type="MarginContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Lines" type="VBoxContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1/Body"]
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Tag" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.63, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+text = "TAG"
+
+[node name="Name" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1/Body/Lines"]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+text = "Name"
+
+[node name="Desc" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.94, 1)
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
+text = "Desc"
+
+[node name="Evolve" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card1/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.25, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+text = ""
 
 [node name="Card2" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(250, 168)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(300, 220)
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/normal = SubResource("CardBox")
+theme_override_styles/hover = SubResource("CardBox")
+theme_override_styles/pressed = SubResource("CardBox")
+theme_override_styles/disabled = SubResource("CardBox")
+text = ""
+
+[node name="Body" type="MarginContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Lines" type="VBoxContainer" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2/Body"]
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Tag" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.63, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+text = "TAG"
+
+[node name="Name" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2/Body/Lines"]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+text = "Name"
+
+[node name="Desc" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.94, 1)
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
+text = "Desc"
+
+[node name="Evolve" type="Label" parent="LevelUpLayer/Root/Center/Panel/Cards/Card2/Body/Lines"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.25, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+text = ""
+
+[node name="Hint" type="Label" parent="LevelUpLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
 text = "-"
+
+[node name="Controls" type="HBoxContainer" parent="LevelUpLayer/Root/Center/Panel"]
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Reroll" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
+custom_minimum_size = Vector2(200, 40)
+theme_override_font_sizes/font_size = 17
+text = "REROLL (3)"
+
+[node name="Banish" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
+custom_minimum_size = Vector2(200, 40)
+theme_override_font_sizes/font_size = 17
+text = "BANISH (2)"
 
 [node name="PauseLayer" type="CanvasLayer" parent="."]
 process_mode = 3
@@ -257,26 +423,6 @@ theme_override_font_sizes/font_size = 19
 text = "QUIT TO MENU"
 
 [node name="SettingsPanel" parent="PauseLayer/Root" instance=ExtResource("5")]
-
-[node name="Hint" type="Label" parent="LevelUpLayer/Root/Center/Panel"]
-theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
-text = "-"
-
-[node name="Controls" type="HBoxContainer" parent="LevelUpLayer/Root/Center/Panel"]
-theme_override_constants/separation = 16
-alignment = 1
-
-[node name="Reroll" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
-custom_minimum_size = Vector2(200, 40)
-theme_override_font_sizes/font_size = 17
-text = "REROLL (3)"
-
-[node name="Banish" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
-custom_minimum_size = Vector2(200, 40)
-theme_override_font_sizes/font_size = 17
-text = "BANISH (2)"
 
 [node name="GameOverLayer" type="CanvasLayer" parent="."]
 process_mode = 3

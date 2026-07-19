@@ -34,7 +34,7 @@ var _weapons: Node2D
 @onready var _health_label: Label = $HUD/Root/HealthLabel
 @onready var _weapons_label: Label = $HUD/Root/WeaponsLabel
 @onready var _combo_label: Label = $HUD/Root/ComboLabel
-@onready var _buff_label: Label = $HUD/Root/BuffLabel
+@onready var _buff_list: VBoxContainer = $HUD/Root/BuffList
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
@@ -264,15 +264,34 @@ func _tint_bar(bar: ProgressBar, colour: Color) -> void:
 		bar.add_theme_stylebox_override("fill", styled)
 
 
-## Active buffs as icon-ish text plus a countdown, beside the EXP bar. A timed
-## effect the player cannot see running is one they cannot play around.
-func _buff_text() -> String:
-	var parts := PackedStringArray()
+## Active buffs as a stacked list down the left, BELOW the EXP bar.
+##
+## They previously sat on the same row as the bar and were drawn over by it. A
+## timed effect the player cannot see running is one they cannot play around.
+func _refresh_buff_list() -> void:
+	var active := []
 	if _buff_time > 0.0 and _buff_id != "":
-		parts.append("%s %.0fs" % [Balance.DROPS[_buff_id]["name"], ceil(_buff_time)])
+		active.append([_buff_id, _buff_time])
 	if _splash_time > 0.0:
-		parts.append("Splash %.0fs" % ceil(_splash_time))
-	return "   ".join(parts)
+		active.append(["splash", _splash_time])
+
+	# Reuse rows rather than rebuilding: this runs every physics frame.
+	while _buff_list.get_child_count() < active.size():
+		var row := Label.new()
+		row.add_theme_font_size_override("font_size", 16)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_buff_list.add_child(row)
+
+	for i in _buff_list.get_child_count():
+		var row: Label = _buff_list.get_child(i)
+		if i >= active.size():
+			row.visible = false
+			continue
+		var drop_id: String = active[i][0]
+		var remaining: float = active[i][1]
+		row.visible = true
+		row.text = "%s  %.0fs" % [Balance.DROPS[drop_id]["name"], ceil(remaining)]
+		row.add_theme_color_override("font_color", Balance.DROPS[drop_id]["color"])
 
 
 # --- Drops -------------------------------------------------------------------
@@ -603,7 +622,11 @@ func _deal_cards() -> void:
 	for i in _levelup_buttons.get_child_count():
 		var button: Button = _levelup_buttons.get_child(i)
 		var card: Dictionary = _current_cards[i]
-		button.text = "%s\n%s\n\n%s" % [_card_tag(card), card["name"], card["desc"]]
+		var lines := button.get_node("Body/Lines")
+		lines.get_node("Tag").text = _card_tag(card)
+		lines.get_node("Name").text = str(card["name"])
+		lines.get_node("Desc").text = str(card["desc"])
+		lines.get_node("Evolve").text = _recipe_text(card.get("hint", {}))
 		for connection in button.pressed.get_connections():
 			button.pressed.disconnect(connection["callable"])
 		button.pressed.connect(_on_card_chosen.bind(i))
@@ -619,6 +642,19 @@ func _card_tag(card: Dictionary) -> String:
 		Cards.KIND_WEAPON_LEVEL: return "WEAPON  Lv%d" % int(card["level"])
 		Cards.KIND_PASSIVE:      return "PASSIVE  Lv%d" % int(card["level"])
 		_:                       return "RECOVER"
+
+
+## The gold line: what this card builds toward, and how close both halves are.
+## An evolution the player cannot see coming is one they will never assemble
+## on purpose.
+func _recipe_text(hint: Dictionary) -> String:
+	if hint.is_empty():
+		return ""
+	return "EVOLVES → %s\n%s %d/%d  ·  %s %d/%d" % [
+		hint["result"],
+		hint["weapon_name"], hint["weapon_level"], hint["weapon_max"],
+		hint["passive_name"], hint["passive_stacks"], hint["passive_max"],
+	]
 
 
 func _refresh_card_controls() -> void:
@@ -880,7 +916,7 @@ func _update_hud() -> void:
 	else:
 		_combo_label.text = ""
 	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
-	_buff_label.text = _buff_text()
+	_refresh_buff_list()
 	_weapons_label.text = "%s     [%d/%d slots]" % [
 		_weapons.summary(), _weapons.slots_used(), _weapon_slots]
 	_hp_bar.value = _player.hp

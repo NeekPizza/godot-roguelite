@@ -41,7 +41,7 @@ static func eligible(state: Dictionary) -> Array:
 			"kind": KIND_EVOLUTION, "id": evolution, "base": weapon_id,
 			"name": Weapons.definition(evolution)["name"],
 			"desc": Weapons.definition(evolution)["desc"],
-			"level": 1,
+			"level": 1, "hint": {},
 		})
 
 	for weapon_id in Balance.WEAPONS:
@@ -49,12 +49,7 @@ static func eligible(state: Dictionary) -> Array:
 			continue
 		if owned.has(weapon_id):
 			if int(owned[weapon_id]) < Weapons.max_level(weapon_id):
-				pool.append({
-					"kind": KIND_WEAPON_LEVEL, "id": weapon_id,
-					"name": Balance.WEAPONS[weapon_id]["name"],
-					"desc": "Level %d" % (int(owned[weapon_id]) + 1),
-					"level": int(owned[weapon_id]) + 1,
-				})
+				pool.append(_weapon_level_card(weapon_id, owned, stacks))
 		elif owned.size() < slots:
 			# Only offer new weapons while a slot is free; once full, the deck
 			# is levels for what you hold.
@@ -63,32 +58,49 @@ static func eligible(state: Dictionary) -> Array:
 				"name": Balance.WEAPONS[weapon_id]["name"],
 				"desc": Balance.WEAPONS[weapon_id]["desc"],
 				"level": 1,
+				"hint": Weapons.recipe_hint(false, weapon_id, owned, stacks),
 			})
 
 	for weapon_id in owned:
 		if not Weapons.is_evolved(weapon_id):
 			continue
 		if int(owned[weapon_id]) < Weapons.max_level(weapon_id):
-			pool.append({
-				"kind": KIND_WEAPON_LEVEL, "id": weapon_id,
-				"name": Weapons.definition(weapon_id)["name"],
-				"desc": "Level %d" % (int(owned[weapon_id]) + 1),
-				"level": int(owned[weapon_id]) + 1,
-			})
+			pool.append(_weapon_level_card(weapon_id, owned, stacks))
 
 	for passive_id in Balance.PASSIVES:
 		if banished.has(passive_id):
 			continue
 		var entry: Dictionary = Balance.PASSIVES[passive_id]
 		var held := int(stacks.get(passive_id, 0))
-		if held < int(entry["max"]):
-			pool.append({
-				"kind": KIND_PASSIVE, "id": passive_id,
-				"name": entry["name"], "desc": entry["desc"],
-				"level": held + 1,
-			})
+		if held >= int(entry["max"]):
+			continue
+
+		var hint := Weapons.recipe_hint(true, passive_id, owned, stacks)
+		# Skip passives that change no number for the weapons held — UNLESS the
+		# passive is the evolution ingredient for one of them. Without that
+		# carve-out, filtering would quietly make evolutions unreachable, which
+		# is a worse bug than the wasted card it fixes.
+		if hint.is_empty() and not Weapons.passive_applies_to(passive_id, owned):
+			continue
+
+		pool.append({
+			"kind": KIND_PASSIVE, "id": passive_id,
+			"name": entry["name"], "desc": entry["desc"],
+			"level": held + 1, "hint": hint,
+		})
 
 	return pool
+
+
+static func _weapon_level_card(weapon_id: String, owned: Dictionary,
+		stacks: Dictionary) -> Dictionary:
+	return {
+		"kind": KIND_WEAPON_LEVEL, "id": weapon_id,
+		"name": Weapons.definition(weapon_id)["name"],
+		"desc": Weapons.level_delta_text(weapon_id),
+		"level": int(owned[weapon_id]) + 1,
+		"hint": Weapons.recipe_hint(false, weapon_id, owned, stacks),
+	}
 
 
 ## Draw N distinct cards. `action_index` is 0 for the level's first offer and
@@ -109,6 +121,6 @@ static func draw(date_string: String, level_index: int, action_index: int,
 		chosen.append({
 			"kind": KIND_HEAL, "id": Balance.CARD_FALLBACK["id"],
 			"name": Balance.CARD_FALLBACK["name"],
-			"desc": Balance.CARD_FALLBACK["desc"], "level": 0,
+			"desc": Balance.CARD_FALLBACK["desc"], "level": 0, "hint": {},
 		})
 	return chosen

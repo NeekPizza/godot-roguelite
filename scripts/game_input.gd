@@ -35,12 +35,27 @@ const UI_PAD_BINDINGS := {
 	"ui_cancel": JOY_BUTTON_B,
 }
 
+## Space is the dash. Godot binds it to ui_accept by default, which meant a
+## level-up card was chosen the instant you tried to dash — and the same trap
+## sat on the pause and main menus. Stripped globally rather than special-cased
+## on the card screen; Enter, click and gamepad A all still confirm.
+const UI_ACCEPT_STRIP_KEYS := [KEY_SPACE]
+
 
 func _enter_tree() -> void:
 	for action_name in ACTIONS:
 		_register(action_name, ACTIONS[action_name])
 	for action_name in UI_PAD_BINDINGS:
 		_add_pad_button(action_name, UI_PAD_BINDINGS[action_name])
+	_strip_keys("ui_accept", UI_ACCEPT_STRIP_KEYS)
+
+
+func _strip_keys(action_name: String, keycodes: Array) -> void:
+	if not InputMap.has_action(action_name):
+		return
+	for event in InputMap.action_get_events(action_name):
+		if event is InputEventKey and event.keycode in keycodes:
+			InputMap.action_erase_event(action_name, event)
 
 
 func _add_pad_button(action_name: String, button: JoyButton) -> void:

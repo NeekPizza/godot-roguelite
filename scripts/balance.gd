@@ -199,18 +199,26 @@ const WEAPON_SLOT_WEIGHTS := [[3, 1.0]]
 ## one would mean a special case in the apply path.
 ##
 ## Ops: "mul" / "add" on a player property, plus "add_max_hp" and "heal".
+##
+## `applies_to` gates whether the card is even OFFERED. A passive that does
+## nothing for the weapons you hold is a wasted card at a moment the player is
+## under pressure — Overclock with an Orbit/Nova/Boomerang build changes
+## literally no number. Omitting the key means "always relevant" (the
+## player-affecting ones). A passive is ALSO always offered when it is the
+## evolution ingredient for a weapon you hold — see cards.gd, without which
+## filtering would quietly make evolutions unreachable.
 const PASSIVES := {
-	"overclock": {"name": "Overclock", "desc": "+25% fire rate (shot weapons)", "max": 5,
+	"overclock": {"applies_to": {"cooldown_class": ["shot"]}, "name": "Overclock", "desc": "+25% fire rate (shot weapons)", "max": 5,
 		"effects": [{"stat": "fire_rate_mult", "op": "mul", "value": 1.25}]},
-	"cooldown_core": {"name": "Cooldown Core", "desc": "-10% volley cooldown", "max": 5,
+	"cooldown_core": {"applies_to": {"cooldown_class": ["volley"]}, "name": "Cooldown Core", "desc": "-10% volley cooldown", "max": 5,
 		"effects": [{"stat": "volley_cooldown_mult", "op": "mul", "value": 0.90}]},
 	"hollow": {"name": "Hollow Point", "desc": "+15% damage", "max": 8,
 		"effects": [{"stat": "damage_mult", "op": "mul", "value": 1.15}]},
-	"split": {"name": "Split Shot", "desc": "+1 projectile", "max": 3,
+	"split": {"applies_to": {"behavior": ["seek", "curve", "boomerang", "orbit"]}, "name": "Split Shot", "desc": "+1 projectile", "max": 3,
 		"effects": [{"stat": "projectile_bonus", "op": "add", "value": 1}]},
-	"pierce": {"name": "Piercing", "desc": "+1 pierce", "max": 3,
+	"pierce": {"applies_to": {"behavior": ["seek", "curve", "boomerang"]}, "name": "Piercing", "desc": "+1 pierce", "max": 3,
 		"effects": [{"stat": "pierce_bonus", "op": "add", "value": 1}]},
-	"velocity": {"name": "Velocity Coil", "desc": "+20% projectile speed", "max": 3,
+	"velocity": {"applies_to": {"behavior": ["seek", "curve", "boomerang"]}, "name": "Velocity Coil", "desc": "+20% projectile speed", "max": 3,
 		"effects": [{"stat": "projectile_speed_mult", "op": "mul", "value": 1.20}]},
 	"amplifier": {"name": "Amplifier", "desc": "+15% area and size", "max": 4,
 		"effects": [{"stat": "area_scale", "op": "mul", "value": 1.15}]},

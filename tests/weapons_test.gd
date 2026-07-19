@@ -116,6 +116,65 @@ func _ready() -> void:
 	_check("still offers %d cards" % Balance.LEVEL_UP_CHOICES,
 		empty.size() == Balance.LEVEL_UP_CHOICES)
 
+	print("\n=== passives are filtered to the loadout ===")
+	# Overclock only speeds up "shot" weapons. With a pure volley build it
+	# changes literally no number, so offering it wastes a card at a moment the
+	# player is under pressure.
+	var volley_only := _state({"nova": 1, "orbit": 1}, {}, 3)
+	var volley_ids := _ids(Cards.eligible(volley_only))
+	_check("Overclock hidden for a volley-only build",
+		not volley_ids.has("%s/overclock" % Cards.KIND_PASSIVE))
+	_check("Cooldown Core offered for a volley-only build",
+		volley_ids.has("%s/cooldown_core" % Cards.KIND_PASSIVE))
+
+	var shot_only := _state({"pulse": 1, "curveball": 1}, {}, 3)
+	var shot_ids := _ids(Cards.eligible(shot_only))
+	_check("Cooldown Core hidden for a shot-only build",
+		not shot_ids.has("%s/cooldown_core" % Cards.KIND_PASSIVE))
+	_check("Overclock offered for a shot-only build",
+		shot_ids.has("%s/overclock" % Cards.KIND_PASSIVE))
+	_check("Piercing hidden with no projectile weapon",
+		not volley_ids.has("%s/pierce" % Cards.KIND_PASSIVE))
+
+	print("\n=== but evolution ingredients are ALWAYS offered ===")
+	# Orbit + Amplifier -> Event Horizon. Amplifier must survive filtering even
+	# when it would otherwise look irrelevant, or the evolution becomes
+	# unreachable — a worse bug than the wasted card the filter removes.
+	var orbit_build := _ids(Cards.eligible(_state({"orbit": 1}, {}, 3)))
+	_check("Amplifier offered to an Orbit build (its recipe partner)",
+		orbit_build.has("%s/amplifier" % Cards.KIND_PASSIVE))
+	var nova_build := _ids(Cards.eligible(_state({"nova": 1}, {}, 3)))
+	_check("Cooldown Core offered to a Nova build (its recipe partner)",
+		nova_build.has("%s/cooldown_core" % Cards.KIND_PASSIVE))
+
+	print("\n=== player-affecting passives are always relevant ===")
+	for passive_id in ["kinetics", "vitality", "magnetism", "guard", "greed"]:
+		_check("%s offered regardless of loadout" % passive_id,
+			volley_ids.has("%s/%s" % [Cards.KIND_PASSIVE, passive_id]))
+
+	print("\n=== weapon level cards say what they do ===")
+	var levels := Cards.eligible(_state({"pulse": 2}, {}, 3))
+	var described := false
+	for card in levels:
+		if card["kind"] == Cards.KIND_WEAPON_LEVEL and card["id"] == "pulse":
+			described = str(card["desc"]).length() > 0 and str(card["desc"]) != "Level 3"
+			print("      pulse Lv3 reads: %s" % card["desc"])
+	_check("a weapon level card describes its actual deltas", described)
+
+	print("\n=== recipe hints ===")
+	var hinted := false
+	for card in Cards.eligible(_state({"orbit": 3}, {"amplifier": 2}, 3)):
+		if card["kind"] == Cards.KIND_PASSIVE and card["id"] == "amplifier":
+			var hint: Dictionary = card["hint"]
+			hinted = hint.has("result") and hint["result"] == "Event Horizon" \
+				and int(hint["weapon_level"]) == 3 and int(hint["passive_stacks"]) == 2
+			print("      hint: -> %s (%s %d/%d, %s %d/%d)" % [
+				hint.get("result", "?"), hint.get("weapon_name", "?"),
+				int(hint.get("weapon_level", 0)), int(hint.get("weapon_max", 0)),
+				hint.get("passive_name", "?"), int(hint.get("passive_stacks", 0)),
+				int(hint.get("passive_max", 0))])
+	_check("the gold line names the evolution and both halves' progress", hinted)
+
 	print("\n=== daily slot count ===")
 	var slots := Daily.weapon_slots("2026-01-01")
 	_check("same date -> same count", slots == Daily.weapon_slots("2026-01-01"))

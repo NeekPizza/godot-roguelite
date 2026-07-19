@@ -186,6 +186,11 @@ func _draw() -> void:
 	draw_arc(Vector2.ZERO, radius + 14.0, 0.0, TAU, 40, Color(base_colour, 0.30), 3.0)
 
 	_draw_telegraph(radius, base_colour)
+	if archetype == "charger":
+		if _dash_left > 0.0:
+			_draw_dash_lane(radius, 1.0)
+		elif telegraph_progress() > 0.0:
+			_draw_dash_lane(radius, 0.35 + 0.65 * telegraph_progress())
 
 	# Health bar, wider than a regular enemy's so it reads as a milestone.
 	var fraction := clampf(hp / max_hp, 0.0, 1.0)
@@ -231,10 +236,34 @@ func _draw_telegraph(radius: float, base_colour: Color) -> void:
 	var reach := radius + 46.0 * (1.0 - progress)
 	draw_arc(Vector2.ZERO, reach, 0.0, TAU, 44, Color(warn, 0.35 + 0.5 * progress), 3.0)
 
-	if archetype == "aimed_volley" or archetype == "charger":
+	# Cone edges only make sense for a NARROW spread. lane_dash is 360 degrees,
+	# so half of it is 180 and both "edges" rendered directly BEHIND the boss —
+	# pointing away from where it was about to charge.
+	if archetype == "aimed_volley":
 		var spread := deg_to_rad(float(_pattern["spread_deg"])) * 0.5
-		var length := 520.0
 		for side in [-spread, spread]:
 			var direction := _aim.rotated(side)
-			draw_line(direction * radius, direction * length,
+			draw_line(direction * radius, direction * 520.0,
 				Color(warn, 0.20 + 0.35 * progress), 2.0)
+
+
+## The Charger gets its own tell: the lane it is about to travel, drawn FORWARD
+## along the dash vector. Shown during the windup and again while the dash is
+## live, so the lane is visible for as long as it is dangerous.
+func _draw_dash_lane(radius: float, intensity: float) -> void:
+	var warn := Color(1.0, 0.95, 0.5)
+	var length := float(_config.get("dash_speed", 620.0)) \
+		* float(_config.get("dash_duration", 0.9))
+	var lane_half := radius * 0.85
+	var forward := _aim
+	var side := forward.orthogonal()
+
+	draw_line(forward * radius, forward * length, Color(warn, 0.25 * intensity), 3.0)
+	for edge in [-lane_half, lane_half]:
+		draw_line(forward * radius + side * edge, forward * length + side * edge,
+			Color(warn, 0.45 * intensity), 2.0)
+
+	# Arrowhead at the far end, so the direction reads instantly.
+	var tip := forward * length
+	draw_line(tip, tip - forward * 34.0 + side * 20.0, Color(warn, 0.7 * intensity), 3.0)
+	draw_line(tip, tip - forward * 34.0 - side * 20.0, Color(warn, 0.7 * intensity), 3.0)
