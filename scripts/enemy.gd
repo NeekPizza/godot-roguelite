@@ -21,9 +21,17 @@ var contact_damage := 10.0
 var radius := 12.0
 
 var shot_parent: Node2D
+var is_elite := false
+var elite_drop := ""          # decided at SPAWN, read back on death
+var spawn_ordinal := 0        # stable tie-break for chain ordering
+
 var _player: Node2D
 var _flash := 0.0
 var _shot_cooldown := 0.0
+var _facing := Vector2.RIGHT  # Shielded blocks from this direction
+var _age := 0.0
+var _dash_timer := 0.0
+var _dash_state := "idle"     # idle -> telegraph -> lunge
 
 
 func _ready() -> void:
@@ -47,14 +55,38 @@ func setup(new_type_id: String, hp_multiplier: float) -> void:
 	shape.radius = radius
 	$Shape.shape = shape
 
+	_dash_timer = float(stats.get("dash_cooldown", 0.0))
+
 	# Stagger the first shot so a wave of shooters does not volley in unison.
 	# Derived from the type's own cadence, not from RNG: a random offset would
 	# have to come from a stream, and this fires on player-dependent timing.
 	_shot_cooldown = float(stats.get("shot_interval", 0.0)) * 0.5
 
 
+## Applied at spawn from the spawn block's elite roll.
+func make_elite(drop_id: String) -> void:
+	is_elite = true
+	elite_drop = drop_id
+	max_hp *= Balance.ELITE_HP_MULT
+	hp = max_hp
+	contact_damage *= Balance.ELITE_DAMAGE_MULT
+	radius *= Balance.ELITE_SCALE
+	if $Shape.shape is CircleShape2D:
+		$Shape.shape.radius = radius
+
+
+func score_value() -> int:
+	var base := int(stats["score"])
+	return int(round(float(base) * Balance.ELITE_SCORE_MULT)) if is_elite else base
+
+
+func xp_value() -> int:
+	return int(stats["xp"]) * (2 if is_elite else 1)
+
+
 func _physics_process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta)
+	_age += delta
 
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player")
@@ -75,6 +107,19 @@ func _move(delta: float) -> void:
 	if distance < 0.001:
 		return
 	var direction := to_player / distance
+	_facing = direction
+
+	match stats["behavior"]:
+		"dash":
+			_move_dash(delta, direction)
+			return
+		"weave":
+			# Sine offset perpendicular to the approach, so leading it wrong
+			# misses entirely.
+			var sideways := direction.orthogonal() * sin(
+				_age * float(stats["wave_frequency"])) * float(stats["wave_amplitude"])
+			position += (direction * move_speed + sideways) * delta
+			return
 
 	if stats["behavior"] == "keep_distance":
 		var preferred: float = stats["preferred_range"]
@@ -86,6 +131,27 @@ func _move(delta: float) -> void:
 		return
 
 	position += direction * move_speed * delta
+
+
+## Creep, telegraph, lunge. The windup is the point: an unsignalled charge is
+## not a positioning test, it is a coin flip.
+func _move_dash(delta: float, direction: Vector2) -> void:
+	_dash_timer -= delta
+	match _dash_state:
+		"idle":
+			position += direction * move_speed * delta
+			if _dash_timer <= 0.0:
+				_dash_state = "telegraph"
+				_dash_timer = float(stats["dash_telegraph"])
+		"telegraph":
+			if _dash_timer <= 0.0:
+				_dash_state = "lunge"
+				_dash_timer = float(stats["dash_duration"])
+		"lunge":
+			position += _facing * float(stats["dash_speed"]) * delta
+			if _dash_timer <= 0.0:
+				_dash_state = "idle"
+				_dash_timer = float(stats["dash_cooldown"])
 
 
 func _try_shoot(delta: float) -> void:
@@ -111,19 +177,41 @@ func push_away_from(origin: Vector2, distance: float) -> void:
 	position = Arena.clamp_position(position + away.normalized() * distance, radius)
 
 
-func take_damage(amount: float) -> void:
+## SINGLE DAMAGE ENTRY POINT. Everything — projectiles, orbs, Nova rings, splash
+## chains, bombs — routes through here, which is what lets Shielded's directional
+## armour apply uniformly instead of only to whichever sources remembered it.
+func take_damage(amount: float, from_position := Vector2.INF) -> void:
 	if hp <= 0.0:
 		return  # Already dead this frame; never emit `killed` twice.
-	hp -= amount
+	hp -= amount * _damage_scale(from_position)
 	_flash = 0.08
 	if hp <= 0.0:
 		killed.emit(self)
 		queue_free()
 
 
+## Shielded takes almost nothing through its front arc. Pure geometry against
+## its own facing — no RNG, so it cannot desync.
+func _damage_scale(from_position: Vector2) -> float:
+	if not stats.has("shield_arc_deg") or from_position == Vector2.INF:
+		return 1.0
+	var incoming := (from_position - position).normalized()
+	var angle := rad_to_deg(absf(_facing.angle_to(incoming)))
+	if angle <= float(stats["shield_arc_deg"]) * 0.5:
+		return float(stats["shield_mult"])
+	return 1.0
+
+
 func _draw() -> void:
 	var color: Color = Color.WHITE if _flash > 0.0 else stats["color"]
+	if _dash_state == "telegraph":
+		color = Color.WHITE   # the tell
 	_draw_body(color)
+
+	if is_elite:
+		draw_arc(Vector2.ZERO, radius + 7.0, 0.0, TAU, 26, Balance.ELITE_RING_COLOR, 2.5)
+		draw_arc(Vector2.ZERO, radius + 12.0, 0.0, TAU, 26,
+			Color(Balance.ELITE_RING_COLOR, 0.35), 2.0)
 
 	if hp < max_hp:
 		var fraction := hp / max_hp
@@ -156,6 +244,33 @@ func _draw_body(color: Color) -> void:
 			])
 			draw_colored_polygon(points, color)
 			draw_arc(Vector2.ZERO, radius + 5.0, 0.0, TAU, 20, Color(color, 0.3), 1.5)
+		"chevron":
+			var points := PackedVector2Array([
+				Vector2(radius, 0.0), Vector2(-radius * 0.6, radius * 0.9),
+				Vector2(-radius * 0.2, 0.0), Vector2(-radius * 0.6, -radius * 0.9),
+			])
+			for i in points.size():
+				points[i] = points[i].rotated(_facing.angle())
+			draw_colored_polygon(points, color)
+		"shield":
+			var rect := Rect2(-radius, -radius, radius * 2.0, radius * 2.0)
+			draw_rect(rect, color)
+			# The armoured face, drawn on the side it actually protects.
+			var start := _facing.angle() - deg_to_rad(float(stats["shield_arc_deg"]) * 0.5)
+			var finish := _facing.angle() + deg_to_rad(float(stats["shield_arc_deg"]) * 0.5)
+			draw_arc(Vector2.ZERO, radius + 6.0, start, finish, 20,
+				Color(0.9, 0.95, 1.0), 4.0)
+		"fuse":
+			draw_circle(Vector2.ZERO, radius, color)
+			draw_arc(Vector2.ZERO, radius + 5.0, 0.0,
+				TAU * (0.5 + 0.5 * sin(_age * 6.0)), 22, Color(1.0, 0.9, 0.4), 2.5)
+		"ribbon":
+			var points := PackedVector2Array([
+				Vector2(0.0, -radius), Vector2(radius * 0.75, 0.0),
+				Vector2(0.0, radius), Vector2(-radius * 0.75, 0.0),
+			])
+			draw_colored_polygon(points, color)
+			draw_polyline(points + PackedVector2Array([points[0]]), Color(color, 0.4), 2.0)
 		"nested_square":
 			var rect := Rect2(-radius, -radius, radius * 2.0, radius * 2.0)
 			draw_rect(rect, color)

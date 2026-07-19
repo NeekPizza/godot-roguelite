@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 		if _cooldowns.has(id):
 			continue
 		_cooldowns[id] = _rehit
-		area.take_damage(damage)
+		area.take_damage(damage, global_position)
 		Sfx.play("hit")
 	queue_redraw()
 

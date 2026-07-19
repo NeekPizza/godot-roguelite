@@ -51,7 +51,9 @@ func _ready() -> void:
 
 	for id in Balance.ENEMY_TYPES:
 		var e: Dictionary = Balance.ENEMY_TYPES[id]
-		var valid: bool = e["behavior"] in ["chase", "keep_distance"]
+		# enemies_test covers behaviour-specific fields; this only guards the
+		# shape every type must have.
+		var valid: bool = e["behavior"] in ["chase", "keep_distance", "dash", "weave"]
 		if e["behavior"] == "keep_distance":
 			valid = valid and e.has("preferred_range") and e.has("shot_interval")
 		if e.has("splits_into"):

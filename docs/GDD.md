@@ -732,7 +732,7 @@ is meaningless without slot pressure to play against), and **drops before elites
 | **6b** | **DONE.** Weapons: Pulse, Orbit, Curveball, Boomerang, Nova · Passives: Cooldown Core, Amplifier, Guard, Greed · slot system · reroll + banish | `daily` stream (slot count); card draws indexed by `(date, level, action)`. Digest gained slots, weapons, passives, banished, rerolls, banishes. |
 | **6c** | **DONE.** Evolutions: Railgun, Event Horizon, Blade Storm, Supernova · combo multiplier | None — both deterministic given play. Digest gained `combo`. |
 | **6d** | **DONE.** Pickups: Bomb, Magnet, Health, Invulnerability · Temp weapons: Shotgun, Machine Gun, Splash Gun | `drops` stream, schedule precomputed at run start. Digest gained drops taken/spawned and a schedule fingerprint. |
-| **6e** | Enemies: Dasher, Shielded, Bomber, Weaver · seed-selected daily roster · elites | Roster from `daily`; spawn block grows 3 draws → **5** (elite + elite-drop) |
+| **6e** | **DONE.** Enemies: Dasher, Shielded, Bomber, Weaver · seed-selected daily roster · elites | Roster from `daily`; spawn block grew 3 draws → 5 (elite + elite-drop). Digest gained roster and elite count. |
 | **6f** | Bosses: Spinner, Aimed Volley, Charger, Ring Master · telegraphs · escalation | Indexed `boss` stream per slot |
 
 ### Definition of done, per sub-phase

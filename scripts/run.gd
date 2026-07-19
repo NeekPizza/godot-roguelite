@@ -77,6 +77,9 @@ var _buff_id := ""            # instant/buff effect currently running
 var _buff_time := 0.0
 var _splash_time := 0.0       # splash is a modifier, so it runs alongside
 var _drops_taken := 0
+var _spawn_ordinal := 0
+var _elites_spawned := 0
+var _roster: Array = []
 
 # --- Combo (6c) ---
 var _combo_chain := 0.0
@@ -156,6 +159,9 @@ func _ready() -> void:
 
 	# The entire run's drops, decided now: what, when, and at which absolute
 	# world position. Nothing is rolled during play.
+	_roster = Daily.enemy_roster(_date_string)
+	print("[run] roster today: %s" % ", ".join(PackedStringArray(_roster)))
+
 	_drop_schedule = Drops.build_schedule(_date_string)
 	print("[run] drop schedule: %d entries, first at %.1fs" % [
 		_drop_schedule.size(), float(_drop_schedule[0]["time"])])
@@ -377,6 +383,26 @@ func _splash_from(origin: Vector2, source_max_hp: float, depth: int) -> void:
 	_fx.burst(origin, Balance.DROPS["splash"]["color"], 14, 200.0)
 
 
+## Bomber detonates on death, hurting the player AND nearby enemies. Same
+## ordering and depth rules as splash: child order, capped, no RNG.
+func _bomber_blast(source: Area2D, depth := 0) -> void:
+	var blast_radius: float = source.stats["blast_radius"]
+	var blast_damage: float = source.stats["blast_damage"]
+	var origin: Vector2 = source.position
+	if _player.position.distance_to(origin) <= blast_radius:
+		_player.take_damage(blast_damage)
+	_fx.burst(origin, source.stats["color"], 26, 260.0)
+	_fx.add_shake(2.0)
+
+	if depth >= int(source.stats.get("blast_chain_depth", 1)):
+		return
+	for enemy in _enemies.get_children():
+		if not is_instance_valid(enemy) or enemy == source or enemy.is_in_group("boss"):
+			continue
+		if origin.distance_to(enemy.position) <= blast_radius:
+			enemy.take_damage(blast_damage, origin)
+
+
 # --- Combo -------------------------------------------------------------------
 
 ## Kills inside COMBO_WINDOW of each other build a chain; it bleeds away once
@@ -450,7 +476,7 @@ func _schedule_waves(delta: float) -> void:
 		return
 	_spawn_timer += Difficulty.spawn_interval(_elapsed)
 
-	var weights := Difficulty.type_weights(_elapsed)
+	var weights := Difficulty.type_weights_for(_elapsed, _roster)
 	var hp_multiplier := Difficulty.hp_multiplier(_elapsed)
 	for i in Difficulty.spawn_count(_elapsed):
 		# Draw from spawn_rng UNCONDITIONALLY, before the cap check, and always
@@ -460,13 +486,20 @@ func _schedule_waves(delta: float) -> void:
 		# alive depends on how well the player is fighting, so if a skipped
 		# spawn also skipped its RNG draws, a good player and a bad player would
 		# desync the shared stream and stop playing the same daily run.
+		# EXACTLY FIVE DRAWS per spawn, always, whatever the outcome: edge,
+		# position, type, elite, elite-drop. The elite's drop is decided HERE,
+		# at spawn, and only read back when it dies — never rolled at death,
+		# which happens on player-dependent timing.
 		var edge := _spawn_rng.randi_range(0, 3)
 		var along := _spawn_rng.randf()
 		var roll := _spawn_rng.randf()
+		var elite_roll := _spawn_rng.randf()
+		var drop_roll := _spawn_rng.randf()
 		if _enemies.get_child_count() >= Balance.ENEMY_CAP:
 			continue
 		_spawn_enemy(Difficulty.pick_type(weights, roll),
-			Arena.edge_position(edge, along), hp_multiplier)
+			Arena.edge_position(edge, along), hp_multiplier,
+			elite_roll < Balance.ELITE_CHANCE, Drops.pick(drop_roll))
 
 
 ## Bosses arrive on a FIXED time schedule (difficulty.gd), never a player-driven
@@ -495,11 +528,17 @@ func _spawn_boss(boss_index: int, at: Vector2) -> void:
 		Difficulty.boss_hp(boss_index), Difficulty.boss_damage(boss_index)])
 
 
-func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float) -> void:
+func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float,
+		elite := false, drop_id := "") -> void:
 	_type_counts[type_id] = _type_counts.get(type_id, 0) + 1
 	var enemy := ENEMY_SCENE.instantiate()
 	enemy.position = at
 	enemy.setup(type_id, hp_multiplier)
+	enemy.spawn_ordinal = _spawn_ordinal
+	_spawn_ordinal += 1
+	if elite:
+		enemy.make_elite(drop_id)
+		_elites_spawned += 1
 	enemy.shot_parent = _enemy_shots
 	enemy.killed.connect(_on_enemy_killed)
 	_enemies.add_child(enemy)
@@ -654,11 +693,11 @@ func _score() -> int:
 func _on_enemy_killed(enemy: Area2D) -> void:
 	_kills += 1
 	_register_combo_kill()
-	_kill_score += int(round(float(enemy.stats["score"]) * combo_multiplier()))
+	_kill_score += int(round(float(enemy.score_value()) * combo_multiplier()))
 
 	var gem := XP_GEM_SCENE.instantiate()
 	gem.position = enemy.position
-	gem.value = int(enemy.stats["xp"])
+	gem.value = enemy.xp_value()
 	# Deferred: this fires from an area_entered signal, i.e. mid physics-query
 	# flush, and adding an Area2D right then throws "Can't change this state
 	# while flushing queries". Deferring is still deterministic — the adds run
@@ -669,6 +708,13 @@ func _on_enemy_killed(enemy: Area2D) -> void:
 		Balance.PARTICLES_ON_KILL, Balance.PARTICLE_SPEED_KILL)
 	_fx.add_shake(Balance.SHAKE_ON_KILL)
 	Sfx.play("enemy_death")
+
+	# Elites guarantee a drop. The id was fixed at spawn; this only reads it.
+	if enemy.is_elite and enemy.elite_drop != "":
+		_spawn_pickup(enemy.elite_drop, enemy.position)
+
+	if enemy.stats.has("blast_radius"):
+		_bomber_blast(enemy)
 
 	if _splash_time > 0.0:
 		_splash_from(enemy.position, enemy.max_hp, 0)
@@ -795,10 +841,11 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops=%d/%d schedule=%s" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d scheduled=%d schedule=%s roster=%s elites=%d" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
 		_drops_taken, _next_drop, Drops.schedule_digest(_drop_schedule),
+		",".join(PackedStringArray(_roster)), _elites_spawned,
 	]
 
 

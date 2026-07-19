@@ -85,7 +85,7 @@ func _on_area_entered(area: Area2D) -> void:
 		return
 	_already_hit.append(enemy_id)
 
-	area.take_damage(_damage)
+	area.take_damage(_damage, position)
 	Sfx.play("hit")
 	if _pierce_left <= 0:
 		queue_free()

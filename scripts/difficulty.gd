@@ -30,6 +30,17 @@ static func _ramp(elapsed: float, start: float, duration: float) -> float:
 	return clampf((elapsed - start) / duration, 0.0, 1.0)
 
 
+## Restricted to today's roster. Types not active today keep their entry at a
+## zero weight rather than being removed, so a spawn consumes exactly the same
+## number of draws whatever the roster happens to be.
+static func type_weights_for(elapsed: float, roster: Array) -> Array:
+	var table := type_weights(elapsed)
+	for entry in table:
+		if not roster.has(entry[0]):
+			entry[1] = 0.0
+	return table
+
+
 ## Weighted spawn table as a function of time. Drifters decay from the whole
 ## table toward a floor; every other type phases in on its own schedule.
 ##

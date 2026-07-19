@@ -25,6 +25,28 @@ static func weapon_slots(date_string: String) -> int:
 	return int(Balance.WEAPON_SLOT_WEIGHTS[0][0])
 
 
+## Which enemy types are live today: the core two plus a seed-picked selection.
+##
+## Drawn from the SAME `daily` stream as the slot count, immediately after it.
+## The order of these two draws is load-bearing — swapping them would change
+## what every past date means.
+static func enemy_roster(date_string: String) -> Array:
+	var rng := GameSeed.make_daily_rng(date_string)
+	rng.randf()                      # consumed by weapon_slots; keep in step
+
+	var pool := Balance.ENEMY_POOL.duplicate()
+	var roster := Balance.ENEMY_CORE.duplicate()
+	for i in mini(Balance.ENEMY_ROSTER_PICK, pool.size()):
+		var index := rng.randi_range(0, pool.size() - 1)
+		roster.append(pool[index])
+		pool.remove_at(index)
+	return roster
+
+
 ## Human-readable summary for the menu.
 static func summary(date_string: String) -> String:
-	return "Weapon slots today: %d" % weapon_slots(date_string)
+	var names := PackedStringArray()
+	for type_id in enemy_roster(date_string):
+		names.append(str(Balance.ENEMY_TYPES[type_id]["name"]))
+	return "Weapon slots: %d   ·   Today: %s" % [
+		weapon_slots(date_string), ", ".join(names)]

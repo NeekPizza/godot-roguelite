@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 		if id in _hit:
 			continue
 		_hit.append(id)
-		area.take_damage(damage)
+		area.take_damage(damage, global_position)
 		# Knockback is a position nudge, not a physics impulse: enemies drive
 		# their own movement, so an impulse would simply be ignored next frame.
 		if knockback > 0.0 and area.has_method("push_away_from"):

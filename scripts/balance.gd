@@ -254,33 +254,92 @@ const BANISHES_PER_RUN := 2
 ## Optional: splits_into / split_count for enemies that break apart on death.
 const ENEMY_TYPES := {
 	"drifter": {
+		"name": "Drifter",
 		"hp": 20.0, "speed": 90.0, "damage": 10.0, "radius": 12.0,
 		"score": 10, "xp": 1, "color": Color(1.0, 0.28, 0.85),
 		"behavior": "chase", "shape": "square",
 	},
 	"swarmer": {
+		"name": "Swarmer",
 		"hp": 8.0, "speed": 175.0, "damage": 6.0, "radius": 8.0,
 		"score": 6, "xp": 1, "color": Color(1.0, 0.55, 0.15),
 		"behavior": "chase", "shape": "triangle",
 	},
 	"tank": {
+		"name": "Tank",
 		"hp": 90.0, "speed": 45.0, "damage": 20.0, "radius": 22.0,
 		"score": 30, "xp": 3, "color": Color(0.65, 0.35, 1.0),
 		"behavior": "chase", "shape": "hexagon",
 	},
 	"shooter": {
+		"name": "Shooter",
 		"hp": 25.0, "speed": 70.0, "damage": 8.0, "radius": 13.0,
 		"score": 20, "xp": 2, "color": Color(1.0, 0.25, 0.3),
 		"behavior": "keep_distance", "shape": "diamond",
 		"preferred_range": 340.0, "shot_interval": 3.2,
 	},
 	"splitter": {
+		"name": "Splitter",
 		"hp": 40.0, "speed": 70.0, "damage": 12.0, "radius": 16.0,
 		"score": 20, "xp": 2, "color": Color(0.3, 1.0, 0.6),
 		"behavior": "chase", "shape": "nested_square",
 		"splits_into": "swarmer", "split_count": 2,
 	},
+
+	"dasher": {
+		"name": "Dasher",
+		"hp": 26.0, "speed": 74.0, "damage": 14.0, "radius": 13.0,
+		"score": 18, "xp": 2, "color": Color(0.45, 0.85, 1.0),
+		"behavior": "dash", "shape": "chevron",
+		## Telegraphed on purpose: a lunge with no windup is not a skill test.
+		"dash_telegraph": 0.55, "dash_speed": 620.0, "dash_duration": 0.35,
+		"dash_cooldown": 2.6,
+	},
+	"shielded": {
+		"name": "Shielded",
+		"hp": 55.0, "speed": 62.0, "damage": 16.0, "radius": 16.0,
+		"score": 26, "xp": 2, "color": Color(0.55, 0.62, 0.95),
+		"behavior": "chase", "shape": "shield",
+		## Damage from within this arc of its facing is reduced to shield_mult.
+		## The first enemy where WHERE YOU STAND is the whole problem.
+		"shield_arc_deg": 150.0, "shield_mult": 0.15,
+	},
+	"bomber": {
+		"name": "Bomber",
+		"hp": 30.0, "speed": 118.0, "damage": 10.0, "radius": 14.0,
+		"score": 22, "xp": 2, "color": Color(1.0, 0.42, 0.2),
+		"behavior": "chase", "shape": "fuse",
+		"blast_radius": 130.0, "blast_damage": 26.0, "blast_chain_depth": 2,
+	},
+	"weaver": {
+		"name": "Weaver",
+		"hp": 22.0, "speed": 132.0, "damage": 9.0, "radius": 11.0,
+		"score": 16, "xp": 1, "color": Color(0.95, 0.45, 0.95),
+		"behavior": "weave", "shape": "ribbon",
+		"wave_amplitude": 110.0, "wave_frequency": 2.1,
+	},
 }
+
+## Always active; the day's roster is these plus a seed-picked selection.
+const ENEMY_CORE := ["drifter", "swarmer"]
+## Picked from this pool by the `daily` stream. With slots capped at 3, the
+## roster is now the seed's main lever on how a day actually plays.
+const ENEMY_POOL := ["tank", "shooter", "splitter", "dasher", "shielded",
+					 "bomber", "weaver"]
+const ENEMY_ROSTER_PICK := 4
+
+# =============================================================================
+# ELITES (6e)
+# =============================================================================
+## Rolled as part of the spawn block, so an elite's drop is fixed the moment it
+## appears and merely read back when it dies — never rolled at death, which is
+## player-timed.
+const ELITE_CHANCE := 0.045
+const ELITE_HP_MULT := 6.0
+const ELITE_DAMAGE_MULT := 1.5
+const ELITE_SCORE_MULT := 5.0
+const ELITE_SCALE := 1.45
+const ELITE_RING_COLOR := Color(1.0, 0.9, 0.35)
 
 ## Where split children appear, relative to the parent. Fixed offsets, never
 ## random: splitters die on player-dependent timing, so an RNG draw here would
@@ -324,6 +383,10 @@ const TYPE_SCHEDULE := [
 	{"id": "shooter",  "unlock": 240.0, "ramp": 180.0, "weight": 0.42},
 	{"id": "tank",     "unlock": 360.0, "ramp": 240.0, "weight": 1.00},
 	{"id": "splitter", "unlock": 480.0, "ramp": 240.0, "weight": 0.90},
+	{"id": "dasher",   "unlock": 180.0, "ramp": 180.0, "weight": 0.75},
+	{"id": "weaver",   "unlock": 210.0, "ramp": 180.0, "weight": 0.70},
+	{"id": "bomber",   "unlock": 330.0, "ramp": 240.0, "weight": 0.55},
+	{"id": "shielded", "unlock": 420.0, "ramp": 240.0, "weight": 0.60},
 ]
 
 # =============================================================================
