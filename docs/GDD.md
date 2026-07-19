@@ -1,7 +1,12 @@
 # Game Design Document — *Daily Seed* (working title)
 
-**Version 1.1** — endless model. (v1.0 was a fixed 10-minute run with a win
-state; that is removed, see sections 2, 7, 8 and 12.)
+**Version 1.2** — content expansion: dash, a weapon roster with seed-limited
+slots, evolutions, a combo multiplier, drops, an expanded bestiary with elites,
+and multiple telegraphed boss archetypes. Planned in section 14, data shapes in
+section 15. Nothing in this version is built yet.
+
+*(v1.1 made the run endless and removed the win state. v1.0 was a fixed
+10-minute run.)*
 
 **Genre:** Daily-seed survivors-like / score-attack roguelite
 **Engine:** Godot 4.7.1, GDScript, GL Compatibility renderer
@@ -109,24 +114,71 @@ on a seed gets byte-identical spawn *positions*, not just identical spawn
   the cursor.** All three are equivalent; keyboard takes priority while both are
   active so the two never fight. No acceleration ramp — crisp beats realistic.
 - The player is a **neon triangle** that points in the movement direction.
-- No dash in v1. (Candidate first cut if the game feels too easy.)
+### Dash (v1.2)
+
+A short burst with **invulnerability frames**, on a cooldown. The one active
+verb in a game otherwise about positioning, and the answer to being cornered.
+
+| Property | Starting value |
+|---|---|
+| Distance | 190 px over 0.16 s |
+| Invulnerability | 0.32 s (slightly outlasts the movement, so it covers the landing) |
+| Cooldown | 3.0 s |
+| Tell | Player drops to 45% opacity and leaves three fading afterimages |
+
+The tell is not decoration. Invulnerability the player cannot see is
+indistinguishable from luck, and a dodge that reads as luck teaches nothing. The
+cooldown is shown as a ring under the player.
+
+Bound to Space, right mouse button, and the pad's right shoulder.
 
 ---
 
-## 4. Weapon (Phase 1: exactly one)
+## 4. Weapons and slots
 
-**Pulse** — fires the nearest-enemy-seeking projectile automatically.
+### The roster (v1.2 — six base weapons)
 
-| Stat | Base value |
-|---|---|
-| Damage | 10 |
-| Fire rate | 2.0 / s |
-| Projectile speed | 400 px/s |
-| Pierce | 0 (dies on first hit) |
-| Range | 500 px (despawns beyond) |
+Each is a distinct *behaviour*, not a stat variant, and each levels independently
+through the card pool.
 
-Targeting: nearest enemy within range at the moment of firing. If no enemy is
-in range, **do not fire** (don't waste the rhythm, and it reads as intentional).
+| Weapon | Behaviour | Why it plays differently |
+|---|---|---|
+| **Pulse** | Straight shot at the nearest enemy | The baseline. Rewards facing the crowd. |
+| **Halo** | Blades orbiting the player | Zero aim, pure positioning — you *drive* the damage. |
+| **Arc** | Shot that curves toward its target | Punishes fleeing enemies the Pulse would miss. |
+| **Return** | Boomerang, out and back | Two damage windows per throw; rewards standing in the lane. |
+| **Nova** | Radial burst centred on the player | Crowd-clearing under pressure, useless at range. |
+| **Mines** | Proximity charges dropped behind you | Turns retreating into an attack. |
+
+Every weapon has: base stats, a per-level delta table, a max level, and an
+evolution recipe. All of it is data (section 15) — a seventh weapon should be a
+new row, not new branches.
+
+### Passives are global
+
+The eight passives (fire rate, damage, projectile count, pierce, move speed,
+pickup radius, max HP, projectile speed) apply to **every** weapon at once. That
+keeps them meaningful as the roster grows, and it is what makes evolution
+recipes legible: a passive is a build direction, not a per-weapon tax.
+
+### Weapon slots are set by the daily seed
+
+**Today's run allows 3, 4 or 5 weapons.** The number is drawn from the `daily`
+stream and is the same for every player on that seed.
+
+| Slots | Weight | Feel |
+|---|---|---|
+| 3 | 0.45 | Forced specialisation; evolutions come early |
+| 4 | 0.35 | The middle |
+| 5 | 0.20 | Sprawling, generalist builds |
+
+Once slots are full the card pool stops offering new weapons and offers levels
+for the ones you hold. The count is shown **on the ranked confirmation screen**,
+before the attempt is spent — it changes how you draft, so hiding it would be
+hiding a rule.
+
+Slot count is the strongest lever the seed has on how a day actually *plays*,
+which is the answer to every day otherwise sharing one skeleton.
 
 ---
 
@@ -147,6 +199,39 @@ a screen crowded with fifty entities.
 Enemies spawn **off-screen at the world edges** and walk inward. They never
 spawn on top of the player — with a fixed seed that would hand everyone the
 same unfair moment.
+
+### v1.2 additions
+
+| Type | Shape | Behaviour |
+|---|---|---|
+| **Dasher** | chevron | Creeps, telegraphs, then lunges. Punishes standing still. |
+| **Shielded** | half-ring square | Blocks damage from the front; must be flanked or out-waited. |
+| **Bomber** | round with a fuse ring | Detonates on death, damaging the player *and* nearby enemies. |
+| **Weaver** | ribbon | Approaches on a sine path, so leading it wrong misses entirely. |
+
+Nine types total. The Shielded one is the important addition: it is the first
+enemy that makes *where you stand relative to it* the whole problem, which is
+the skill the game is otherwise built around.
+
+### Today's roster is seed-selected
+
+Drifters and Swarmers are always active. From the remaining seven, the `daily`
+stream picks **four** for the day. So a given seed might be tanks-and-shielded
+(a grind) or dashers-and-weavers (a twitchy sprint), and everyone playing that
+day gets the same one.
+
+This is the other half of the answer to "won't every day feel the same" — the
+pacing skeleton is fixed, but the roster and the weapon-slot count are not.
+
+### Elites
+
+Any spawn can roll **elite** (~4%, from the spawn block's 4th draw). An elite is
+the same type with a modifier applied: more HP, more damage, more score, and a
+bright outer ring so it reads instantly in a crowd.
+
+**Elites always drop something.** The drop is chosen by the 5th draw of that
+enemy's spawn block, so it is fixed the moment the elite appears and merely read
+back when it dies — never rolled at death, which is player-timed.
 
 Two rules that exist for determinism, not for feel:
 
@@ -187,14 +272,87 @@ hard player DPS compounds through the upgrade pool — fire rate, damage,
 projectile count and pierce all multiply together. A gentler curve makes the
 boss trivial by its third appearance.
 
+### v1.2: three archetypes, all telegraphed
+
+Which archetype fills each 3-minute slot is drawn from `hash(date,"boss",slot)`
+— indexed, so slot 3 cannot be shifted by what happened at slot 1. Every player
+on the seed meets the same bosses in the same order.
+
+| Archetype | Shape | Signature |
+|---|---|---|
+| **Warden** | octagon | Slow chase, expanding radial bursts. The current boss. |
+| **Lancer** | arrowhead | Dashes across the arena *while firing*, so the safe lane keeps moving. |
+| **Spiral** | rotating star | Stationary; sweeps rotating streams that force constant circling. |
+
+**Every attack telegraphs.** A windup animation — a charging ring, a widening
+cone, a colour shift — precedes every volley by at least
+`BOSS_TELEGRAPH_MIN` (0.45 s), and that floor holds no matter how far the run
+escalates. Dense bullet patterns are only fair if they are *readable*; without a
+tell, a hard pattern and a cheap one feel identical to the player, and the
+player is right to be annoyed.
+
+### Escalation
+
+Patterns intensify with the boss index rather than being swapped for different
+ones:
+
+| Parameter | Scaling |
+|---|---|
+| Bullets per volley | `base + floor(index × 1.5)` |
+| Spread | widens toward full coverage |
+| Bullet speed | `× 1.08` per index |
+| Volley cadence | shortens, floored |
+| Telegraph | shortens **only to `BOSS_TELEGRAPH_MIN`**, never past it |
+
 ### Determinism rules
 
 - **Boss timing is a fixed function of elapsed time**, never player-driven.
+- **Which archetype and which drop** come from the indexed `boss` stream at slot
+  assignment — not at spawn, and certainly not at death.
 - **Boss position is drawn from `spawn_rng`** at that fixed moment, exactly like
   any other spawn, so it consumes the stream predictably.
 - **The burst pattern rotates by a constant per burst**, not by an RNG draw.
   The boss fires on player-dependent timing, so any draw there would desync the
   shared stream (the same rule as Splitter children, section 5).
+
+---
+
+## 5c. Drops and pickups (v1.2)
+
+Ground drops exist to **pull the player somewhere they would rather not go**.
+A bomb sitting in the middle of a crowd is a decision; a bomb that walks to you
+is a reward for nothing.
+
+### Instant
+
+| Drop | Effect |
+|---|---|
+| **Bomb** | Kills every enemy on screen. Scores normally, so it is worth saving for density. |
+| **Health** | Restores 35 HP. |
+| **Magnet** | Sweeps *all* field XP to the player, gems flying in over ~0.8 s. |
+
+### Timed buffs (25 s, shown as an icon with a countdown beside the EXP bar)
+
+| Drop | Effect |
+|---|---|
+| **Invulnerable** | No damage taken. |
+| **Shotgun** | Replaces weapon fire with a wide, short-range cone. |
+| **Machine gun** | Very high rate, low damage per shot. |
+| **Splash gun** | Killed enemies explode for **50% of their max HP** to nearby enemies. |
+
+Splash is the one with teeth: chained detonations are **depth-capped** and
+entirely RNG-free, or one kill could cascade differently between two machines
+and break the seed.
+
+### Where drops come from
+
+Three sources, all determinism-safe:
+
+1. **Scheduled ground drops** — the `drops` stream precomputes the whole run's
+   schedule at start: what, at what absolute time, at what absolute world
+   position. Never rolled during play, never placed relative to the player.
+2. **Boss drops** — decided when the boss slot is assigned, read back on death.
+3. **Elite drops** — decided when the elite spawns, read back on death.
 
 ---
 
@@ -211,8 +369,19 @@ boss trivial by its third appearance.
 Steeper than the Phase 1 curve, which handed out levels faster than the upgrades
 stayed meaningful once wave density went up.
 
-**On level-up:** the game **pauses**, presents **3 upgrade cards**, player picks
-one with mouse or keyboard/controller. No reroll, no skip in v1.
+**On level-up:** the game **pauses** and presents **3 cards**, drawn from a
+single pool of new weapons (if a slot is free), weapon levels, passive levels,
+and any unlocked evolutions.
+
+### Reroll and banish (v1.2)
+
+- **Reroll** (3 per run) redraws all three cards.
+- **Banish** (2 per run) removes one card from the pool for the rest of the run.
+
+Both are drawn from `hash(date, level, action_index)` — indexed per action, not
+from a running stream. That is the whole trick: whether the player rerolls, how
+many times, and how long they think about it cannot shift any other stream. Two
+players who reroll differently still face identical waves.
 
 ### Upgrade pool (8 entries, all stackable)
 
@@ -238,6 +407,48 @@ risk/reward of leaving gems on the field depends on that not happening.
 When an upgrade hits max stacks it leaves the pool. If fewer than 3 upgrades
 remain available, backfill with a **+10 HP heal** card so there is always a
 choice to make.
+
+---
+
+## 6b. Evolutions and the combo multiplier (v1.2)
+
+### Evolution
+
+A **base weapon at max level** plus a **specific passive at max stacks** unlocks
+an evolution card. Taking it replaces the base weapon in place — it does not
+cost a slot.
+
+| Weapon | + Passive | → Evolution |
+|---|---|---|
+| Pulse | Overclock | **Lance** — piercing beam that punches through a line |
+| Halo | Kinetics | **Aegis** | 
+| Arc | Velocity | **Tempest** |
+| Return | Piercing | **Cyclone** |
+| Nova | Hollow Point | **Collapse** |
+| Mines | Magnetism | **Cluster** |
+
+Recipes are data (section 15). The design intent is that evolutions make the
+**slot limit** interesting: with three slots you will reach two evolutions, with
+five you will probably reach none, so the daily slot count decides whether the
+day rewards focus or breadth.
+
+### Combo multiplier
+
+Kills within `COMBO_WINDOW` (2.5 s) of each other build a chain. The chain
+decays if you stop killing.
+
+```
+multiplier = 1 + min(COMBO_MAX_BONUS, chain × COMBO_PER_KILL)
+```
+
+Starting values: `COMBO_PER_KILL` 0.02, `COMBO_MAX_BONUS` 1.5 (so ×2.5 at cap),
+decay 1 chain per 0.15 s once the window lapses.
+
+**It multiplies kill score only** — not survival time, not XP. Multiplying
+survival would reward turtling with a full bar, which is precisely the play the
+scoring is built to discourage. Shown on the HUD as a number that visibly decays,
+because a multiplier the player cannot watch drain is a multiplier they will not
+play around.
 
 ---
 
@@ -331,35 +542,68 @@ UTC, not local time — otherwise the "daily" rolls over at different moments pe
 player and the leaderboard compares different runs. The date string is taken
 from `Time.get_datetime_dict_from_system(true)`.
 
-### Three separate RNG streams — do not merge them
+### Seven RNG streams — do not merge them
 
-This is the most important architectural rule in the codebase. Determinism
-breaks silently and is miserable to debug after the fact.
+The most important architectural rule in the codebase. Determinism breaks
+silently and is miserable to debug after the fact, so randomness is partitioned
+by *concern*, and every gameplay stream is derived from the date.
 
-| Stream | Seeded from | Consumed by | Rule |
+| Stream | Derivation | Drives | Draw discipline |
 |---|---|---|---|
-| `spawn_rng` | daily seed | wave scheduler only | Consumed in a **fixed order at fixed times**. Never touched by anything player-dependent. |
-| `upgrade_rng` | `hash(daily_seed, level_index)` | level-up card draw | Re-derived per level, so *when* you level up cannot shift the sequence. |
-| `fx_rng` | unseeded / time | particles, screen shake, sound variation | **Never** allowed to influence gameplay state. |
+| `spawn` | `hash(date,"spawn")` | wave scheduling | Running stream. **Exactly 5 draws per spawn** — edge, along, type, elite, elite-drop — regardless of outcome. |
+| `daily` | `hash(date,"daily")` | weapon-slot count, today's active enemy roster | Drawn **once at run start**, before anything else. |
+| `boss` | `hash(date,"boss",slot)` | archetype, pattern variant and drop for boss slot *N* | **Indexed, not running.** Slot 3 cannot be shifted by what happened at slot 1. |
+| `drops` | `hash(date,"drops")` | the entire drop schedule: what, when, where | Precomputed into a list **at run start**. Nothing is rolled during play. |
+| `upgrade` | `hash(date,level)` | the three level-up cards | Indexed per level. |
+| `reroll` | `hash(date,level,action)` | reroll and banish results | Indexed per action, so acting or not acting cannot shift anything else. |
+| `fx` | unseeded | particles, shake, sound variation | **Cosmetic only.** May never write gameplay state. |
 
-Why `upgrade_rng` is re-derived per level rather than being one continuous
-stream: two players who reach level 7 at different times must still be offered
-the same three cards. A continuous stream would give identical *sequences* but
-that's already satisfied — the real hazard is a shared stream, where a
-player-timed draw would shift the spawn sequence. Keeping them separate makes
-the failure impossible rather than merely unlikely.
+### The rule that makes all of this work
 
-**Consequences to respect:**
+> **Anything that resolves on player-dependent timing must consume ZERO random
+> numbers at that moment. Its randomness is pre-drawn and indexed.**
+
+Enemies die when the player kills them. Bosses fall when the player is strong
+enough. Level-ups land whenever XP happens to cross the line. If any of those
+moments *drew* from a stream, two players on the same seed would consume it at
+different points and their runs would silently diverge.
+
+So instead:
+
+- An elite's drop is decided **when it spawns** (part of the 5-draw spawn block),
+  and merely *read back* when it dies.
+- A boss's drop is decided **when its slot is assigned**, not when it dies.
+- Ground drops are **placed by the precomputed schedule** at absolute times and
+  absolute world positions, independent of where the player is.
+- Splitter children, boss burst rotation and shooter cadence stay on fixed
+  offsets and constants — the original form of this same rule.
+
+The corollary is that the cap check must not skip draws: when the 300-enemy cap
+blocks a spawn, its 5 draws still happen. How many enemies are alive depends on
+how well the player is fighting, so skipping the draws would desync a strong
+player from a struggling one.
+
+### Consequences to respect
+
 - Physics must be fixed-timestep. No gameplay logic in `_process` — gameplay
   goes in `_physics_process`.
 - No gameplay decision may read wall-clock time, frame rate, or FPS-dependent
   values.
-- Enemy spawn *positions* come from `spawn_rng`, not from the player's current
-  position, or the sequence diverges the instant two players move differently.
+- Enemy spawn *positions* come from `spawn`, never from the player's current
+  position.
+- Chain effects (splash damage detonating another enemy) must be **depth-capped**
+  and RNG-free, or one kill can cascade differently between machines.
 
 ### Verification
-A headless test runs the same seed twice with a scripted input sequence and
-asserts identical end state. This must pass before Phase 3 is called done.
+
+`tools/determinism_check.sh` runs one seed twice with a scripted player and
+compares an end-state digest that includes `spawn` stream state — which encodes
+exactly how many draws were made. It also runs a negative control: a *different*
+scripted player must diverge, because a test that cannot fail is worthless.
+
+**Every v1.2 sub-phase extends the digest** with whatever it adds — the daily
+selections, the boss assignment list, a hash of the drop schedule — and the
+check must stay green before that sub-phase is called done.
 
 ---
 
@@ -405,9 +649,12 @@ CC0 or self-generated only.
 
 **Now IN scope:**
 
-- **One scaling boss archetype** (section 5b) — moved in as part of v1.1.
 - **Endless play.** The fixed 10-minute run and its win state are *removed*, not
   deferred: there is no clear condition to come back to.
+- **v1.2 content expansion** — moved in from the list below, planned in
+  section 14: a six-weapon roster with seed-limited slots, weapon evolutions, a
+  combo multiplier, drops and temporary weapons, four more enemies plus elites,
+  and three telegraphed boss archetypes. Plus a dash.
 
 **Still OUT** — recorded so these get re-proposed as *post-launch*, not smuggled
 into the build:
@@ -416,10 +663,9 @@ into the build:
 - Ghosts / replay racing (best v2 candidate)
 - Multiple characters or starting loadouts
 - Meta-progression / permanent unlocks between runs
-- **Additional boss archetypes** (v1.0 ships exactly one, which scales)
 - Multiple maps or biomes
-- Weapon evolutions / combo crafting
-- New weapons beyond Pulse
+- Player characters with different starting kits
+- Per-weapon passive trees (passives stay global — see section 4)
 
 ---
 
@@ -437,3 +683,117 @@ into the build:
 **Phase 1 is the real risk gate.** If the one-enemy one-weapon loop isn't fun to
 play for several minutes, no amount of Phase 2 content will save it. Evaluate
 honestly at that checkpoint before building more on top.
+
+---
+
+## 14. v1.2 rollout plan
+
+Six sub-phases, each committed, pushed, and determinism-checked on its own. The
+ordering is deliberate: **the slot system lands before evolutions** (evolutions
+are meaningless without a slot pressure to play against), and **drops land before
+elites** (elites guarantee a drop, so the drop system has to exist first).
+
+| Phase | Scope | Determinism work | New digest fields |
+|---|---|---|---|
+| **6a** | EXP/HEALTH bar labels and colours; dash with i-frames, tell and cooldown | None — dash is input, not randomness | dash cooldown state |
+| **6b** | Six base weapons, slot system, reroll/banish | New `daily` stream (slot count); new `reroll` stream indexed by action | slot count, owned weapons |
+| **6c** | Evolution recipes, combo multiplier | None new — both are deterministic given play | combo chain, evolutions held |
+| **6d** | Drops, buffs, temp weapons | New `drops` stream; schedule **precomputed at run start** | drop-schedule hash, drops taken |
+| **6e** | Four new enemies, daily roster selection, elites | Roster from `daily`; spawn block grows 3 draws → **5** (adds elite + elite-drop) | active roster, elite count |
+| **6f** | Three boss archetypes, telegraphed escalating patterns | Indexed `boss` stream per slot | boss assignment list |
+
+### Definition of done, per sub-phase
+
+1. `tools/determinism_check.sh` green, **including its negative control**.
+2. The digest extended with that phase's new state — otherwise the check would
+   pass while the new system diverges freely, which is worse than no check.
+3. All four test suites green.
+4. Every new number lives in `balance.gd`. No literal in gameplay logic.
+5. A real run played, not just headless verification.
+
+### Risks I want on the record
+
+- **Performance is the real one.** Six weapons plus evolutions plus 300 enemies
+  plus drops plus boss bullet patterns is a large multiple of what currently
+  runs. Target: 60 fps at 300 enemies and 200 live projectiles. Projectile
+  pooling is likely needed at 6b and near-certain by 6f. If it comes to a
+  choice, the enemy cap gets lowered before the frame budget slips.
+- **Card-pool legibility.** Weapons, levels, passives and evolutions in three
+  slots is a lot of information at a moment when the player is under pressure.
+  Cards will need type colour-coding and an owned/level indicator.
+- **Telegraph readability in a crowded screen.** A boss windup competing with
+  fifty enemies and particle bursts may simply not be visible. May need the
+  screen to desaturate briefly, or the boss to be drawn above everything.
+- **Chain reactions.** Splash gun and Bomber both cascade. Depth caps are
+  mandatory, and they are a determinism requirement, not a performance nicety.
+- **Seed meaning changes.** Adding streams and draws changes what every past date
+  produces. Fine pre-launch, and the archive is regenerated from the date
+  anyway, but it means no comparing scores across the v1.2 boundary.
+
+---
+
+## 15. Data shapes (v1.2)
+
+Everything below lives in `balance.gd`. The point of writing the shapes down is
+that **content becomes rows, not branches**: a seventh weapon or a tenth enemy
+should not touch gameplay logic at all.
+
+```gdscript
+WEAPONS = {
+  "pulse": {
+    name, desc,
+    behavior: "straight",      # straight | orbit | curve | boomerang | nova | mine
+    max_level: 5,
+    base:      {damage, cooldown, speed, count, pierce, lifetime, radius, spread},
+    per_level: {damage: +4.0, cooldown: x0.9, count: +0},   # applied per level
+    evolves_with: "overclock", evolves_to: "lance",
+  },
+}
+
+PASSIVES = {                    # global multipliers, apply to every weapon
+  "overclock": {name, desc, stat: "fire_rate", op: "mul", value: 1.25, max: 5},
+}
+
+EVOLUTIONS = [                  # weapon at max level + passive at max stacks
+  {weapon: "pulse", passive: "overclock", result: "lance"},
+]
+
+WEAPON_SLOTS = {                # drawn once from the `daily` stream
+  weights: [[3, 0.45], [4, 0.35], [5, 0.20]],
+}
+
+DROPS = {
+  "bomb":     {kind: "instant", effect: "clear_screen", color, shape, weight: 0.18},
+  "splash":   {kind: "temp_weapon", duration: 25.0, hp_fraction: 0.50,
+               chain_depth_max: 3, radius: 140.0, weight: 0.10},
+}
+DROP_SCHEDULE = {first: 45.0, interval: 38.0, jitter: 12.0, placement: "world_ring"}
+
+ENEMY_TYPES = {                 # existing shape, plus:
+  "shielded": {..., shield_arc_deg: 140.0, shield_mult: 0.15},
+  "dasher":   {..., dash_telegraph: 0.5, dash_speed: 620.0, dash_cooldown: 3.0},
+}
+ENEMY_ROSTER = {core: ["drifter","swarmer"], pick: 4, pool: [...]}
+
+ELITE = {chance: 0.04, hp_mult: 6.0, damage_mult: 1.5, score_mult: 5.0,
+         ring_color, guaranteed_drop: true}
+
+BOSS_ARCHETYPES = {
+  "warden": {shape: "octagon", patterns: ["radial_burst"], speed_mult: 1.0},
+  "lancer": {shape: "arrowhead", patterns: ["dash_strafe"], speed_mult: 1.35},
+  "spiral": {shape: "star", patterns: ["rotating_stream"], speed_mult: 0.0},
+}
+BOSS_PATTERNS = {
+  "radial_burst": {telegraph: 0.6, bullets: 8, spread_deg: 360, speed: 210,
+                   cadence: 3.4, per_index: {bullets: +1.5, speed: x1.08}},
+}
+BOSS_TELEGRAPH_MIN = 0.45       # floor; escalation never goes below this
+
+COMBO = {window: 2.5, per_kill: 0.02, max_bonus: 1.5, decay_per_sec: 6.7}
+DASH  = {distance: 190.0, duration: 0.16, iframes: 0.32, cooldown: 3.0,
+         alpha: 0.45, afterimages: 3}
+REROLLS = 3
+BANISHES = 2
+```
+
+---
