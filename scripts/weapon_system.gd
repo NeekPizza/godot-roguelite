@@ -17,8 +17,13 @@ var projectile_parent: Node2D
 ## which matters: the digest and the HUD both read it.
 var owned := {}
 
-## While a temp weapon is active it REPLACES normal fire, per the roster. Splash
-## is not here — it is a modifier on kills, not a weapon.
+## A temp weapon fires IN ADDITION to everything you hold, never instead of it.
+##
+## Replacing your fire made drops a downgrade the moment your own weapons
+## outgrew them: picking up a Shotgun late, with a maxed and evolved loadout,
+## was strictly worse than not picking it up. A powerup that becomes a debuff
+## teaches players to avoid the pickups, which defeats the point of placing them
+## somewhere dangerous. Splash is likewise additive — it is a modifier on kills.
 var temp_weapon_id := ""
 var _temp_cooldown := 0.0
 
@@ -85,9 +90,9 @@ func _physics_process(delta: float) -> void:
 	if player == null or projectile_parent == null:
 		return
 
+	# Additive: the temp weapon fires alongside the loadout, not in place of it.
 	if temp_weapon_id != "":
 		_tick_temp_weapon(delta)
-		return
 
 	for weapon_id in owned:
 		var stats := Weapons.stats(weapon_id, int(owned[weapon_id]), player)

@@ -492,6 +492,8 @@ const DROPS := {
 		"weight": 0.22, "amount": 35.0, "color": Color(0.3, 0.95, 0.45)},
 	"invuln": {"kind": "buff", "effect": "invuln", "name": "Shield",
 		"weight": 0.12, "duration": 6.0, "color": Color(0.55, 0.85, 1.0)},
+	## Temp weapons fire IN ADDITION to your loadout (see weapon_system.gd), so
+	## they stay an upgrade however strong your own weapons get.
 	"shotgun": {"kind": "temp_weapon", "name": "Shotgun", "weight": 0.10,
 		"duration": 25.0, "damage": 11.0, "cooldown": 0.55, "count": 7,
 		"spread": 0.62, "speed": 520.0, "pierce": 1, "lifetime": 0.45,

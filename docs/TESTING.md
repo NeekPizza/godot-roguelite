@@ -118,6 +118,7 @@ godot --headless tests/evolution_test.tscn                           # evolution
 godot --headless tests/drops_test.tscn                               # drop schedule, bomb radius, splash caps
 godot --headless tests/enemies_test.tscn                             # new enemies, shield arc, elites, roster
 godot --headless tests/boss_test.tscn                                # archetypes, telegraph floor, escalation
+godot --headless tests/temp_weapon_test.tscn                         # temp drops add to the loadout
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```
@@ -172,3 +173,13 @@ A test scene calls `get_tree().quit()` at the end of `_ready()`. If a parse or
 runtime error stops `_ready()` before that line, the scene simply keeps running
 and the process hangs forever rather than failing. `--quit-after` bounds it, and
 the error is then visible in the output.
+
+## Measure rates, do not predict them
+
+`temp_weapon_test` compares projectile counts, and an early version computed the
+expected count from the nominal cooldown (`3s / 0.07s = 42`). The simulation
+steps at 60 Hz, so a 0.07 s cooldown actually fires every 5 ticks — 36 shots, not
+42 — and the assertion failed against correct code.
+
+Measure the baseline by running it, then compare. A predicted number encodes an
+assumption about the step rate that the code does not share.

@@ -353,6 +353,12 @@ reward for nothing.
 
 ### Temporary weapons (25 s, icon + countdown beside the EXP bar)
 
+**They fire in addition to your loadout, never instead of it.** Replacing your
+fire turns a drop into a downgrade as soon as your own weapons outgrow it — a
+late-run Shotgun over a maxed evolved build is strictly worse than nothing. A
+powerup that becomes a debuff teaches players to avoid pickups, which defeats
+the point of placing them somewhere dangerous.
+
 | Drop | Effect | v1.2 |
 |---|---|---|
 | **Shotgun** | Wide short-range burst | Yes |
