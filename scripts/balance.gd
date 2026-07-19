@@ -406,6 +406,46 @@ const BOSS_SPEED_STEP := 4.0
 const BOSS_SPEED_CAP := 120.0
 const BOSS_SCORE_BASE := 600
 const BOSS_RADIUS := 46.0
+
+## Four archetypes. Which one fills a 3-minute slot comes from the INDEXED
+## `boss` stream, so slot 3 cannot be shifted by what happened at slot 1.
+const BOSS_ARCHETYPES := {
+	"spinner": {"name": "Spinner", "shape": "octagon", "pattern": "rotating_spray",
+		"speed_mult": 1.0, "color": Color(1.0, 0.30, 0.55)},
+	"aimed_volley": {"name": "Volley", "shape": "diamond", "pattern": "shotgun_burst",
+		"speed_mult": 1.15, "color": Color(1.0, 0.45, 0.30)},
+	"charger": {"name": "Charger", "shape": "arrowhead", "pattern": "lane_dash",
+		"speed_mult": 1.30, "color": Color(1.0, 0.25, 0.35),
+		"dash_speed": 620.0, "dash_duration": 0.9},
+	"ring_master": {"name": "Ring Master", "shape": "star", "pattern": "gapped_ring",
+		"speed_mult": 0.45, "color": Color(0.85, 0.40, 1.0)},
+}
+
+## Patterns escalate with the boss index. `per_index` is applied (index - 1)
+## times: "+" keys add, "x" keys multiply.
+const BOSS_PATTERNS := {
+	"rotating_spray": {"telegraph": 0.70, "bullets": 8, "spread_deg": 360.0,
+		"speed": 210.0, "cadence": 3.2, "rotation_step": 0.21,
+		"per_index": {"bullets+": 1.5, "speed x": 1.07, "cadence x": 0.94}},
+	"shotgun_burst": {"telegraph": 0.60, "bullets": 7, "spread_deg": 46.0,
+		"speed": 300.0, "cadence": 2.4, "rotation_step": 0.0,
+		"per_index": {"bullets+": 1.0, "speed x": 1.08, "spread_deg+": -2.5,
+					  "cadence x": 0.93}},
+	"lane_dash": {"telegraph": 0.85, "bullets": 10, "spread_deg": 360.0,
+		"speed": 190.0, "cadence": 3.6, "rotation_step": 0.37,
+		"per_index": {"bullets+": 2.0, "speed x": 1.06, "cadence x": 0.92}},
+	"gapped_ring": {"telegraph": 0.80, "bullets": 30, "spread_deg": 360.0,
+		"speed": 175.0, "cadence": 3.8, "rotation_step": 0.13, "gaps": 3,
+		"gap_deg": 40.0,
+		"per_index": {"bullets+": 3.0, "speed x": 1.05, "gap_deg+": -3.5,
+					  "cadence x": 0.95}},
+}
+
+## The floor escalation may never cross. Dense patterns are only fair if they
+## are readable; without a tell, a hard pattern and a cheap one feel identical
+## to the player, and the player is right to be annoyed.
+const BOSS_TELEGRAPH_MIN := 0.45
+const BOSS_CADENCE_MIN := 1.1
 const BOSS_BURST_INTERVAL := 3.4
 const BOSS_BURST_SHOTS := 8
 ## Radians added per burst so the gaps in the ring move between volleys.

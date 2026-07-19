@@ -117,6 +117,7 @@ godot --headless tests/weapons_test.tscn                             # weapons, 
 godot --headless tests/evolution_test.tscn                           # evolution recipes, combo multiplier
 godot --headless tests/drops_test.tscn                               # drop schedule, bomb radius, splash caps
 godot --headless tests/enemies_test.tscn                             # new enemies, shield arc, elites, roster
+godot --headless tests/boss_test.tscn                                # archetypes, telegraph floor, escalation
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```

@@ -80,6 +80,7 @@ var _drops_taken := 0
 var _spawn_ordinal := 0
 var _elites_spawned := 0
 var _roster: Array = []
+var _boss_log: Array = []
 
 # --- Combo (6c) ---
 var _combo_chain := 0.0
@@ -508,6 +509,9 @@ func _schedule_waves(delta: float) -> void:
 ## and desync the stream.
 func _check_boss_schedule() -> void:
 	while _elapsed >= Difficulty.boss_time(_next_boss):
+		# Position comes from the spawn stream at this fixed moment; WHICH boss
+		# and WHAT it drops come from the indexed boss stream, so a boss killed
+		# early, late or not at all cannot change who shows up next.
 		var edge := _spawn_rng.randi_range(0, 3)
 		var along := _spawn_rng.randf()
 		_spawn_boss(_next_boss, Arena.edge_position(edge, along))
@@ -515,17 +519,21 @@ func _check_boss_schedule() -> void:
 
 
 func _spawn_boss(boss_index: int, at: Vector2) -> void:
+	var archetype := Difficulty.boss_archetype(_date_string, boss_index)
+	var drop_id := Difficulty.boss_drop(_date_string, boss_index)
+	_boss_log.append("%d:%s" % [boss_index, archetype])
+
 	var boss := BOSS_SCENE.instantiate()
 	boss.position = at
-	boss.setup(boss_index)
+	boss.setup(boss_index, archetype, drop_id)
 	boss.shot_parent = _enemy_shots
 	boss.killed.connect(_on_boss_killed)
 	_enemies.add_child(boss)
 	Sfx.play("boss_spawn")
 	_fx.add_shake(Balance.SHAKE_ON_BOSS_SPAWN)
-	print("[run] BOSS %d at %s (hp %.0f, dmg %.0f)" % [
-		boss_index, _format_time(_elapsed),
-		Difficulty.boss_hp(boss_index), Difficulty.boss_damage(boss_index)])
+	print("[run] BOSS %d %s at %s (hp %.0f, drops %s)" % [
+		boss_index, archetype, _format_time(_elapsed),
+		Difficulty.boss_hp(boss_index), drop_id])
 
 
 func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float,
@@ -749,7 +757,11 @@ func _on_boss_killed(boss: Area2D) -> void:
 		gem.value = Balance.BOSS_GEM_VALUE
 		_gems.add_child.call_deferred(gem)
 
-	_fx.burst(boss.position, Balance.BOSS_COLOR,
+	# The drop was decided when the slot was assigned; this only reads it.
+	if boss.drop_id != "":
+		_spawn_pickup(boss.drop_id, boss.position)
+
+	_fx.burst(boss.position, boss.colour(),
 		Balance.PARTICLES_ON_BOSS_KILL, Balance.PARTICLE_SPEED_BOSS)
 	_fx.add_shake(Balance.SHAKE_ON_BOSS_KILL)
 	Sfx.play("boss_death")
@@ -841,11 +853,12 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d scheduled=%d schedule=%s roster=%s elites=%d" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
 		_drops_taken, _next_drop, Drops.schedule_digest(_drop_schedule),
 		",".join(PackedStringArray(_roster)), _elites_spawned,
+		",".join(PackedStringArray(_boss_log)),
 	]
 
 

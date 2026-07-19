@@ -94,3 +94,45 @@ static func boss_speed(index: int) -> float:
 
 static func boss_score(index: int) -> int:
 	return Balance.BOSS_SCORE_BASE * index
+
+
+## Which archetype fills a slot. INDEXED, not a running stream: a boss killed
+## early, late, or not at all cannot change who shows up next.
+static func boss_archetype(date_string: String, slot: int) -> String:
+	var rng := GameSeed.make_boss_rng(date_string, slot)
+	var ids := Balance.BOSS_ARCHETYPES.keys()
+	return ids[rng.randi_range(0, ids.size() - 1)]
+
+
+## The drop a boss slot carries, decided WITH the slot assignment rather than at
+## death, which is player-timed.
+static func boss_drop(date_string: String, slot: int) -> String:
+	var rng := GameSeed.make_boss_rng(date_string, slot)
+	rng.randi()                       # consumed by boss_archetype; keep in step
+	return Drops.pick(rng.randf())
+
+
+## Pattern parameters for a boss at `index`, with escalation applied and the
+## telegraph and cadence floors enforced.
+static func boss_pattern(pattern_id: String, index: int) -> Dictionary:
+	var base: Dictionary = Balance.BOSS_PATTERNS[pattern_id]
+	var steps := float(maxi(0, index - 1))
+	var out := base.duplicate(true)
+	var per_index: Dictionary = base["per_index"]
+
+	for key in per_index:
+		var value: float = per_index[key]
+		if key.ends_with("+"):
+			var field: String = key.substr(0, key.length() - 1)
+			out[field] = float(out[field]) + value * steps
+		elif key.ends_with(" x"):
+			var field_mul: String = key.substr(0, key.length() - 2)
+			out[field_mul] = float(out[field_mul]) * pow(value, steps)
+
+	out["bullets"] = maxi(3, int(round(float(out["bullets"]))))
+	out["telegraph"] = maxf(Balance.BOSS_TELEGRAPH_MIN, float(out["telegraph"]))
+	out["cadence"] = maxf(Balance.BOSS_CADENCE_MIN, float(out["cadence"]))
+	out["spread_deg"] = maxf(8.0, float(out["spread_deg"]))
+	if out.has("gap_deg"):
+		out["gap_deg"] = maxf(10.0, float(out["gap_deg"]))
+	return out

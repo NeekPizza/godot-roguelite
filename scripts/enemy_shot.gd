@@ -8,12 +8,15 @@ const COLOR := Color(1.0, 0.35, 0.4)
 
 var _direction := Vector2.RIGHT
 var _damage := 8.0
+var _speed := Balance.ENEMY_SHOT_SPEED
 var _travelled := 0.0
 
 
-func setup(direction: Vector2, damage: float) -> void:
+func setup(direction: Vector2, damage: float,
+		speed := Balance.ENEMY_SHOT_SPEED) -> void:
 	_direction = direction
 	_damage = damage
+	_speed = speed
 
 
 func _ready() -> void:
@@ -22,7 +25,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var step := Balance.ENEMY_SHOT_SPEED * delta
+	var step := _speed * delta
 	position += _direction * step
 	_travelled += step
 	if _travelled >= Balance.ENEMY_SHOT_RANGE or Arena.is_far_outside(position):
