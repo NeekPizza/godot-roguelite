@@ -14,6 +14,19 @@ extends RefCounted
 ## so simulating a player cannot itself perturb spawn_rng.
 
 const CHANGE_INTERVAL := 0.7
+const DASH_INTERVAL := 1.9
+
+
+## Deterministic dash presses, so the determinism check covers the dash path.
+## Dash changes position, and position drives kills, pickups and level timing —
+## leaving it out would mean testing a movement model the game no longer uses.
+static func wants_dash(seed_string: String, elapsed: float) -> bool:
+	if seed_string == "":
+		return false
+	# True on the single physics tick that crosses each interval boundary.
+	var step := 1.0 / 60.0
+	var previous := floori((elapsed - step) / DASH_INTERVAL)
+	return floori(elapsed / DASH_INTERVAL) > previous
 
 
 static func direction(seed_string: String, elapsed: float) -> Vector2:

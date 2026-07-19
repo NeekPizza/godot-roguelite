@@ -38,6 +38,22 @@ const PLAYER_PICKUP_RADIUS := 60.0
 ## stops being a movement decision and becomes an automatic sweep.
 const PLAYER_PICKUP_RADIUS_MAX := 200.0
 
+# --- Dash (v1.2, 6a) ---------------------------------------------------------
+## The one active verb in a game otherwise about positioning, and the answer to
+## being cornered.
+const DASH_DISTANCE := 190.0
+const DASH_DURATION := 0.16
+## Outlasts the movement so it also covers the landing — an i-frame window that
+## ends mid-dash would read as the dash "not working".
+const DASH_IFRAMES := 0.32
+const DASH_COOLDOWN := 3.0
+## The tell. Invulnerability the player cannot see is indistinguishable from
+## luck, and a dodge that reads as luck teaches nothing.
+const DASH_ALPHA := 0.45
+const DASH_AFTERIMAGES := 3
+const DASH_AFTERIMAGE_LIFETIME := 0.26
+const DASH_COOLDOWN_RING_RADIUS := 22.0
+
 # =============================================================================
 # WEAPON (Pulse)
 # =============================================================================
@@ -222,6 +238,10 @@ const SCORE_TABLE_ROWS := 5
 # =============================================================================
 # PICKUPS
 # =============================================================================
+## Single source of truth: the EXP bar reads this so the bar and the gems on the
+## field are provably the same colour.
+const GEM_COLOR := Color(1.0, 0.92, 0.25)
+const HEALTH_COLOR := Color(0.30, 0.95, 0.45)
 const GEM_RADIUS := 5.0
 const GEM_ATTRACT_SPEED := 420.0
 
@@ -260,6 +280,7 @@ const SFX_DB := {
 	"level_up": -4.0,
 	"player_hurt": 0.0,
 	"run_over": 0.0,
+	"dash": -14.0,
 	"boss_spawn": -2.0,
 	"boss_death": -2.0,
 }

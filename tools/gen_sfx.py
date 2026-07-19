@@ -112,6 +112,15 @@ def main():
 
     write_wav("player_hurt", render(0.25, player_hurt, 0.34))
 
+    # dash: short airy whoosh. Quiet — it fires often and must not compete with
+    # the shoot sound it will usually overlap.
+    def dash(t, p):
+        sweep = math.sin(TAU * t * (900.0 - 500.0 * p))
+        air = noise(rng) * 0.5
+        return (sweep * 0.45 + air * 0.55) * envelope(p, 0.004, 1.5)
+
+    write_wav("dash", render(0.16, dash, 0.16))
+
     # boss_spawn: ominous rising swell. Deliberately the longest, lowest cue in
     # the set — the boss is the run's biggest moment and its arrival should be
     # audible under a screen already full of combat noise.

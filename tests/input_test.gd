@@ -31,7 +31,7 @@ func _kinds(action: String) -> Dictionary:
 
 func _ready() -> void:
 	print("=== gameplay actions work on keyboard AND gamepad ===")
-	for action in ["move_left", "move_right", "move_up", "move_down", "pause", "restart"]:
+	for action in ["move_left", "move_right", "move_up", "move_down", "pause", "restart", "dash"]:
 		var kinds := _kinds(action)
 		_check("%s (key=%s pad=%s)" % [action, kinds["key"], kinds["pad"]],
 			kinds["key"] and kinds["pad"])
@@ -39,6 +39,8 @@ func _ready() -> void:
 	print("\n=== mouse steering ===")
 	var pointer := _kinds("move_pointer")
 	_check("move_pointer bound to a mouse button", pointer["mouse"])
+	var dash := _kinds("dash")
+	_check("dash reachable on mouse too", dash["mouse"])
 
 	print("\n=== menu navigation is possible on a gamepad ===")
 	# Godot's built-in ui_* actions carry the menu. If these lose their joypad

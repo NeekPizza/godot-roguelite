@@ -20,6 +20,7 @@ const SOUNDS := {
 	"level_up": preload("res://assets/sfx/level_up.wav"),
 	"player_hurt": preload("res://assets/sfx/player_hurt.wav"),
 	"run_over": preload("res://assets/sfx/run_over.wav"),
+	"dash": preload("res://assets/sfx/dash.wav"),
 	"boss_spawn": preload("res://assets/sfx/boss_spawn.wav"),
 	"boss_death": preload("res://assets/sfx/boss_death.wav"),
 }

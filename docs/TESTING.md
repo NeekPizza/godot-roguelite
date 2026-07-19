@@ -112,6 +112,7 @@ is fine. Boot a scene instead.
 godot --headless tests/balance_test.tscn                              # data integrity
 godot --headless tests/steering_test.tscn                            # input/steering logic
 godot --headless tests/input_test.tscn                               # controller bindings
+godot --headless tests/dash_test.tscn                                # dash i-frames, cooldown, tell
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```

@@ -27,6 +27,8 @@ enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 @onready var _level_label: Label = $HUD/Root/LevelLabel
 @onready var _hp_bar: ProgressBar = $HUD/Root/HPBar
 @onready var _xp_bar: ProgressBar = $HUD/Root/XPBar
+@onready var _exp_label: Label = $HUD/Root/ExpLabel
+@onready var _health_label: Label = $HUD/Root/HealthLabel
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
@@ -132,6 +134,8 @@ func _ready() -> void:
 	_pause_menu.pressed.connect(_to_menu)
 	_pause_settings_panel.closed.connect(_close_pause_settings)
 
+	_apply_bar_colours()
+
 	_levelup_layer.hide()
 	_pause_layer.hide()
 	_pause_settings_panel.hide()
@@ -178,6 +182,28 @@ func _quit_cleanly() -> void:
 	Sfx.stop_all()
 	await get_tree().process_frame
 	get_tree().quit()
+
+
+## Drive the bar colours from balance.gd at runtime.
+##
+## The scene file carries matching values so the editor preview looks right, but
+## a StyleBoxFlat in a .tscn cannot reference a GDScript constant — so without
+## this the two could silently drift and the EXP bar would stop matching the gems
+## it represents. Styleboxes are Resources and shared by default, hence the
+## duplicate().
+func _apply_bar_colours() -> void:
+	_tint_bar(_xp_bar, Balance.GEM_COLOR)
+	_tint_bar(_hp_bar, Balance.HEALTH_COLOR)
+	_exp_label.add_theme_color_override("font_color", Balance.GEM_COLOR)
+	_health_label.add_theme_color_override("font_color", Balance.HEALTH_COLOR)
+
+
+func _tint_bar(bar: ProgressBar, colour: Color) -> void:
+	var fill := bar.get_theme_stylebox("fill")
+	if fill is StyleBoxFlat:
+		var styled: StyleBoxFlat = fill.duplicate()
+		styled.bg_color = colour
+		bar.add_theme_stylebox_override("fill", styled)
 
 
 # --- Pause -------------------------------------------------------------------
@@ -490,9 +516,9 @@ func _score_table_text() -> String:
 ## wave scheduler made over the whole run. Two runs matching on score alone could
 ## still have consumed the stream differently; matching on RNG state cannot.
 func _state_digest() -> String:
-	return "rng=%d pos=(%.3f,%.3f) hp=%.3f elapsed=%.3f kills=%d killscore=%d xp=%d level=%d bosses=%d nextboss=%d alive=%d gems=%d spawned=%s" % [
+	return "rng=%d pos=(%.3f,%.3f) hp=%.3f dashes=%d elapsed=%.3f kills=%d killscore=%d xp=%d level=%d bosses=%d nextboss=%d alive=%d gems=%d spawned=%s" % [
 		_spawn_rng.state,
-		_player.position.x, _player.position.y, _player.hp,
+		_player.position.x, _player.position.y, _player.hp, _player.dashes_used,
 		_elapsed, _kills, _kill_score, _xp_collected, _level,
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),

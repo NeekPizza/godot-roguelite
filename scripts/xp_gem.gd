@@ -4,8 +4,6 @@ extends Area2D
 ## the field is a risk/reward decision rather than a punishment for looking
 ## away (GDD section 6). Values live in balance.gd.
 
-const COLOR := Color(1.0, 0.92, 0.25)
-
 var value := 1
 var _target: Node2D
 
@@ -30,5 +28,5 @@ func _draw() -> void:
 		Vector2(0.0, -radius), Vector2(radius, 0.0),
 		Vector2(0.0, radius), Vector2(-radius, 0.0),
 	])
-	draw_colored_polygon(points, COLOR)
-	draw_circle(Vector2.ZERO, radius * 2.2, Color(COLOR, 0.12))
+	draw_colored_polygon(points, Balance.GEM_COLOR)
+	draw_circle(Vector2.ZERO, radius * 2.2, Color(Balance.GEM_COLOR, 0.12))

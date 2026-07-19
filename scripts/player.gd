@@ -31,10 +31,22 @@ var pierce := Balance.WEAPON_PIERCE
 
 var projectile_parent: Node2D
 var godmode := false  # test hook only; see docs/TESTING.md
+var dash_cooldown_scale := 1.0   # Guard passive hooks in here at 6b
+var dash_iframe_scale := 1.0
+
 var _facing := Vector2.UP
 var _scripted_elapsed := 0.0
 var _iframes := 0.0
 var _fire_cooldown := 0.0
+
+# --- Dash state ---
+var dashes_used := 0             # exposed for the determinism digest
+var _dash_time_left := 0.0       # >0 while the burst is moving
+var _dash_iframes := 0.0         # tracked apart from damage i-frames so the
+                                 # hurt tint and the dash tell stay distinct
+var _dash_cooldown_left := 0.0
+var _dash_direction := Vector2.UP
+var _afterimages: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -57,7 +69,12 @@ func _setup_camera() -> void:
 
 func _physics_process(delta: float) -> void:
 	_iframes = maxf(0.0, _iframes - delta)
+	_dash_iframes = maxf(0.0, _dash_iframes - delta)
+	_dash_cooldown_left = maxf(0.0, _dash_cooldown_left - delta)
 	_scripted_elapsed += delta
+
+	_age_afterimages(delta)
+	_try_dash()
 	_move(delta)
 	_collect_pickups()
 	_take_contact_damage()
@@ -66,11 +83,76 @@ func _physics_process(delta: float) -> void:
 
 
 func _move(delta: float) -> void:
+	# A dash overrides steering for its duration: committing to the burst is the
+	# cost that makes the invulnerability a decision rather than a free dodge.
+	if _dash_time_left > 0.0:
+		var step := minf(delta, _dash_time_left)
+		_dash_time_left -= delta
+		position += _dash_direction * (Balance.DASH_DISTANCE / Balance.DASH_DURATION) * step
+		position = Arena.clamp_position(position, Balance.PLAYER_RADIUS)
+		return
+
 	var direction := _input_direction()
 	if direction.length_squared() > 0.0:
 		_facing = direction.normalized()
 		position += _facing * move_speed * delta
 		position = Arena.clamp_position(position, Balance.PLAYER_RADIUS)
+
+
+# --- Dash --------------------------------------------------------------------
+
+func can_dash() -> bool:
+	return _dash_cooldown_left <= 0.0 and _dash_time_left <= 0.0
+
+
+func dash_cooldown_fraction() -> float:
+	var total := Balance.DASH_COOLDOWN * dash_cooldown_scale
+	if total <= 0.0:
+		return 0.0
+	return clampf(_dash_cooldown_left / total, 0.0, 1.0)
+
+
+func is_dashing() -> bool:
+	return _dash_time_left > 0.0 or _dash_iframes > 0.0
+
+
+func _try_dash() -> void:
+	if not _dash_requested() or not can_dash():
+		return
+	# Dash along current steering if there is any, otherwise along facing, so a
+	# standing player still gets a usable escape rather than nothing.
+	var steer := _input_direction()
+	_dash_direction = steer.normalized() if steer.length_squared() > 0.0 else _facing
+	_facing = _dash_direction
+	_dash_time_left = Balance.DASH_DURATION
+	_dash_iframes = Balance.DASH_IFRAMES * dash_iframe_scale
+	_dash_cooldown_left = Balance.DASH_COOLDOWN * dash_cooldown_scale
+	dashes_used += 1
+
+	for i in Balance.DASH_AFTERIMAGES:
+		_afterimages.append({
+			"pos": position,
+			"angle": _facing.angle(),
+			"life": Balance.DASH_AFTERIMAGE_LIFETIME * (1.0 - float(i) * 0.22),
+			"max_life": Balance.DASH_AFTERIMAGE_LIFETIME,
+		})
+	Sfx.play("dash")
+
+
+func _dash_requested() -> bool:
+	if RunConfig.scripted_input_seed != "":
+		return ScriptedInput.wants_dash(RunConfig.scripted_input_seed, _scripted_elapsed)
+	return Input.is_action_just_pressed("dash")
+
+
+## Cosmetic only — afterimages never touch gameplay state.
+func _age_afterimages(delta: float) -> void:
+	var index := _afterimages.size() - 1
+	while index >= 0:
+		_afterimages[index]["life"] -= delta
+		if _afterimages[index]["life"] <= 0.0:
+			_afterimages.remove_at(index)
+		index -= 1
 
 
 ## Real input, unless a test has installed a synthetic player.
@@ -149,6 +231,8 @@ func _take_contact_damage() -> void:
 func take_damage(amount: float) -> void:
 	if godmode:
 		return
+	if _dash_iframes > 0.0:
+		return  # Dashing through it — the whole point of the dash.
 	if _iframes > 0.0 or hp <= 0.0:
 		return  # Already dead: never emit `died` twice.
 	hp -= amount
@@ -165,17 +249,49 @@ func heal(amount: float) -> void:
 	damaged.emit(hp)
 
 
-func _draw() -> void:
-	var radius := Balance.PLAYER_RADIUS
-	var color := COLOR_HURT if _iframes > 0.0 else COLOR_BODY
-	var angle := _facing.angle() + PI * 0.5
-	var points := PackedVector2Array([
+func _body_points(radius: float, angle: float) -> PackedVector2Array:
+	return PackedVector2Array([
 		Vector2(0.0, -radius).rotated(angle),
 		Vector2(-radius * 0.8, radius * 0.7).rotated(angle),
 		Vector2(radius * 0.8, radius * 0.7).rotated(angle),
 	])
-	draw_colored_polygon(points, color)
+
+
+func _draw() -> void:
+	var radius := Balance.PLAYER_RADIUS
+	var color := COLOR_HURT if _iframes > 0.0 else COLOR_BODY
+
+	# Afterimages trail behind the dash, drawn in this node's local space.
+	for image in _afterimages:
+		var fade: float = clampf(image["life"] / image["max_life"], 0.0, 1.0)
+		var local: Vector2 = image["pos"] - position
+		var ghost := _body_points(radius, image["angle"] + PI * 0.5)
+		for i in ghost.size():
+			ghost[i] += local
+		draw_colored_polygon(ghost, Color(COLOR_BODY, 0.30 * fade))
+
+	var angle := _facing.angle() + PI * 0.5
+	var points := _body_points(radius, angle)
+	# Translucent while invulnerable: the tell has to be legible at a glance,
+	# because an unseen i-frame window is indistinguishable from luck.
+	var body_alpha := Balance.DASH_ALPHA if is_dashing() else 1.0
+	draw_colored_polygon(points, Color(color, body_alpha))
 	# Faked glow: GL Compatibility has no cheap post-process bloom, so we ring
 	# the shape with a translucent outline instead.
-	draw_polyline(points + PackedVector2Array([points[0]]), Color(color, 0.35), 3.0)
+	draw_polyline(points + PackedVector2Array([points[0]]), Color(color, 0.35 * body_alpha), 3.0)
 	draw_arc(Vector2.ZERO, pickup_radius, 0.0, TAU, 32, Color(color, 0.10), 1.0)
+
+	_draw_dash_ring()
+
+
+## Cooldown as a ring that fills back around the player, so readiness is visible
+## without looking away from the fight.
+func _draw_dash_ring() -> void:
+	var ring := Balance.DASH_COOLDOWN_RING_RADIUS
+	if can_dash():
+		draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(COLOR_BODY, 0.30), 2.0)
+		return
+	var ready_fraction := 1.0 - dash_cooldown_fraction()
+	draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(COLOR_BODY, 0.10), 2.0)
+	draw_arc(Vector2.ZERO, ring, -PI * 0.5, -PI * 0.5 + TAU * ready_fraction, 28,
+		Color(COLOR_BODY, 0.55), 2.0)

@@ -20,6 +20,8 @@ const ACTIONS := {
 	# Hold to steer toward the cursor. Registered as an action rather than
 	# polled directly so Phase 5's remapping screen can reach it.
 	"move_pointer": {"keys": [], "axis": [], "buttons": [], "mouse": [MOUSE_BUTTON_LEFT]},
+	"dash": {"keys": [KEY_SPACE, KEY_SHIFT], "axis": [], "buttons": [JOY_BUTTON_RIGHT_SHOULDER],
+			 "mouse": [MOUSE_BUTTON_RIGHT]},
 }
 
 
