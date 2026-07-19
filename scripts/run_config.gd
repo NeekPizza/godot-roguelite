@@ -2,29 +2,56 @@ extends Node
 
 ## Decides WHICH run is about to start: which seed date, and whether it counts.
 ##
-## Phase 5 will drive this from the menu. Until then it is driven by CLI flags
-## and a deliberately safe default.
-##
 ## The invariant this file exists to protect (GDD section 2): **a ranked attempt
-## is never consumed by accident.** Launching the game, poking a menu, or
-## running a test must never burn today's attempt. Ranked has to be asked for.
+## is never consumed by accident.** Launching the game, opening a menu, or
+## running a test must never burn today's attempt. Ranked has to be asked for,
+## explicitly, every time.
+##
+## Selection is exposed as methods rather than an exported enum: reaching into
+## an autoload for a nested type is fragile, and `select_ranked()` reads better
+## at the call site than assigning a mode constant.
 
-enum Mode { RANKED, PRACTICE_TODAY, ARCHIVE }
+const MODE_RANKED := 0
+const MODE_PRACTICE := 1
+const MODE_ARCHIVE := 2
+
+## CLI args that mean "skip the menu and start a run" — tests and direct
+## launches. Anything else (like --save-file) leaves the menu in charge.
+const AUTO_START_ARGS := [
+	"--ranked", "--practice", "--godmode", "--auto-pick",
+	"--date=", "--max-seconds=", "--time-scale=", "--scripted-input=",
+]
 
 var date_string := ""
-var mode := Mode.ARCHIVE
+var mode := MODE_ARCHIVE
 var scripted_input_seed := ""     # test hook; empty means a human is playing
+var auto_start := false
 
 
 func is_ranked() -> bool:
-	return mode == Mode.RANKED
+	return mode == MODE_RANKED
 
 
 func mode_name() -> String:
 	match mode:
-		Mode.RANKED: return "RANKED"
-		Mode.PRACTICE_TODAY: return "PRACTICE"
+		MODE_RANKED: return "RANKED"
+		MODE_PRACTICE: return "PRACTICE"
 		_: return "ARCHIVE"
+
+
+func select_ranked(new_date: String) -> void:
+	date_string = new_date
+	mode = MODE_RANKED
+
+
+func select_practice(new_date: String) -> void:
+	date_string = new_date
+	mode = MODE_PRACTICE
+
+
+func select_archive(new_date: String) -> void:
+	date_string = new_date
+	mode = MODE_ARCHIVE
 
 
 func _ready() -> void:
@@ -32,37 +59,35 @@ func _ready() -> void:
 	_parse_args()
 
 
-## Safe default: yesterday's seed as unranked archive practice.
+## Safe default for a direct launch: yesterday's seed as unranked practice.
 ##
 ## NOT today-ranked, which would auto-consume the attempt, and not today-practice
-## either while the ranked attempt is still unspent — rehearsing the exact ranked
-## run defeats the one-attempt rule as thoroughly as unlimited retries would.
+## while the attempt is unspent — rehearsing the exact ranked run defeats the
+## one-attempt rule as thoroughly as unlimited retries would.
 func _apply_defaults() -> void:
 	var today := GameSeed.today_utc()
 	if SaveStore.ranked_available(today):
-		date_string = GameSeed.days_before(today, 1)
-		mode = Mode.ARCHIVE
+		select_archive(GameSeed.days_before(today, 1))
 	else:
-		date_string = today
-		mode = Mode.PRACTICE_TODAY
+		select_practice(today)
 
 
 func _parse_args() -> void:
 	for arg in OS.get_cmdline_user_args():
+		for prefix in AUTO_START_ARGS:
+			if arg == prefix or (prefix.ends_with("=") and arg.begins_with(prefix)):
+				auto_start = true
+
 		if arg == "--ranked":
-			# Explicit opt-in only. This is the menu's "Start today's ranked
-			# run?" confirmation, in CLI form.
-			date_string = GameSeed.today_utc()
-			mode = Mode.RANKED
+			# Explicit opt-in. This is the menu's confirmation prompt in CLI form.
+			select_ranked(GameSeed.today_utc())
 		elif arg == "--practice":
-			date_string = GameSeed.today_utc()
-			mode = Mode.PRACTICE_TODAY
+			select_practice(GameSeed.today_utc())
 		elif arg.begins_with("--date="):
 			# Any past seed, always unranked. Archive practice is free and
 			# unlimited: past seeds are a pure function of the date string, so
 			# they cost no storage and no server.
-			date_string = arg.split("=")[1]
-			mode = Mode.ARCHIVE
+			select_archive(arg.split("=")[1])
 		elif arg.begins_with("--scripted-input="):
 			scripted_input_seed = arg.split("=")[1]
 
@@ -71,12 +96,12 @@ func _parse_args() -> void:
 ## but the day's attempt is already spent, in which case it downgrades to
 ## practice rather than silently granting a second ranked go.
 func begin_run() -> bool:
-	if mode != Mode.RANKED:
+	if mode != MODE_RANKED:
 		return true
 	if not SaveStore.ranked_available(date_string):
 		push_warning("RunConfig: ranked attempt for %s already used; running as practice"
 			% date_string)
-		mode = Mode.PRACTICE_TODAY
+		mode = MODE_PRACTICE
 		return false
 	SaveStore.consume_ranked_attempt(date_string)
 	return true

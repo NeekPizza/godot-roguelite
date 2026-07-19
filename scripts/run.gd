@@ -13,7 +13,7 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 const BOSS_SCENE := preload("res://scenes/boss.tscn")
 
-enum State { RUNNING, LEVEL_UP, OVER }
+enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 
 @onready var _player: Area2D = $Player
 @onready var _enemies: Node2D = $Enemies
@@ -30,6 +30,13 @@ enum State { RUNNING, LEVEL_UP, OVER }
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
+@onready var _pause_layer: CanvasLayer = $PauseLayer
+@onready var _pause_info: Label = $PauseLayer/Root/Center/Panel/Info
+@onready var _pause_resume: Button = $PauseLayer/Root/Center/Panel/Resume
+@onready var _pause_restart: Button = $PauseLayer/Root/Center/Panel/Restart
+@onready var _pause_settings: Button = $PauseLayer/Root/Center/Panel/Settings
+@onready var _pause_menu: Button = $PauseLayer/Root/Center/Panel/Menu
+@onready var _pause_settings_panel: Control = $PauseLayer/Root/SettingsPanel
 @onready var _gameover_layer: CanvasLayer = $GameOverLayer
 @onready var _gameover_label: Label = $GameOverLayer/Root/Center/Breakdown
 
@@ -58,8 +65,6 @@ var _ranked := false
 var _time_scale := 1.0
 var _max_seconds := 0.0
 var _auto_pick := false
-var _screenshot_path := ""
-var _screenshot_after := 0.0
 var _godmode := false
 var _quit_on_end := false
 var _type_counts := {}
@@ -86,11 +91,6 @@ func _parse_test_args() -> void:
 		elif arg.begins_with("--max-seconds="):
 			_max_seconds = float(arg.split("=")[1])
 			print("[run] test override: max-seconds=%.1f" % _max_seconds)
-		elif arg.begins_with("--screenshot="):
-			# "--screenshot=/tmp/shot.png@12" -> capture 12s in.
-			var parts := arg.split("=")[1].split("@")
-			_screenshot_path = parts[0]
-			_screenshot_after = float(parts[1]) if parts.size() > 1 else 5.0
 
 
 func _ready() -> void:
@@ -126,7 +126,15 @@ func _ready() -> void:
 
 	Music.start()
 
+	_pause_resume.pressed.connect(_close_pause)
+	_pause_restart.pressed.connect(_restart)
+	_pause_settings.pressed.connect(_open_pause_settings)
+	_pause_menu.pressed.connect(_to_menu)
+	_pause_settings_panel.closed.connect(_close_pause_settings)
+
 	_levelup_layer.hide()
+	_pause_layer.hide()
+	_pause_settings_panel.hide()
 	_gameover_layer.hide()
 	_hp_bar.max_value = _player.max_hp
 	_update_hud()
@@ -149,17 +157,17 @@ func _physics_process(delta: float) -> void:
 	_update_hud()
 
 
-func _process(delta: float) -> void:
-	if _state == State.OVER and Input.is_action_just_pressed("restart"):
-		get_tree().paused = false
-		get_tree().reload_current_scene()
-
-	if _screenshot_path != "":
-		_screenshot_after -= delta
-		if _screenshot_after <= 0.0:
-			var path := _screenshot_path
-			_screenshot_path = ""
-			_capture_screenshot(path)
+func _process(_delta: float) -> void:
+	if _state == State.OVER:
+		if Input.is_action_just_pressed("restart"):
+			_restart()
+		elif Input.is_action_just_pressed("pause") or Input.is_action_just_pressed("ui_cancel"):
+			_to_menu()
+	elif Input.is_action_just_pressed("pause"):
+		if _state == State.RUNNING:
+			_open_pause()
+		elif _state == State.PAUSED and not _pause_settings_panel.visible:
+			_close_pause()
 
 
 ## Release audio, then quit. Stopping playback first is correct hygiene and is
@@ -172,10 +180,49 @@ func _quit_cleanly() -> void:
 	get_tree().quit()
 
 
-func _capture_screenshot(path: String) -> void:
-	await RenderingServer.frame_post_draw
-	var error := get_viewport().get_texture().get_image().save_png(path)
-	print("[run] screenshot -> %s (err %d)" % [path, error])
+# --- Pause -------------------------------------------------------------------
+
+func _open_pause() -> void:
+	_state = State.PAUSED
+	get_tree().paused = true
+	# Restarting a RANKED run cannot grant a second ranked attempt: the attempt
+	# was burned at run start, so a reload comes back as practice. Say so
+	# plainly rather than letting the player discover it after committing.
+	if _ranked:
+		_pause_info.text = "RANKED — %s\nYour attempt is already used.\nRestarting replays this seed as practice." % _date_string
+		_pause_restart.text = "RESTART (as practice)"
+	else:
+		_pause_info.text = "%s — %s" % [RunConfig.mode_name(), _date_string]
+		_pause_restart.text = "RESTART"
+	_pause_layer.show()
+	_pause_resume.grab_focus()
+
+
+func _close_pause() -> void:
+	_pause_layer.hide()
+	_pause_settings_panel.hide()
+	get_tree().paused = false
+	_state = State.RUNNING
+
+
+func _open_pause_settings() -> void:
+	_pause_settings_panel.show()
+	_pause_settings_panel.focus_first()
+
+
+func _close_pause_settings() -> void:
+	_pause_settings_panel.hide()
+	_pause_resume.grab_focus()
+
+
+func _restart() -> void:
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func _to_menu() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 
 # --- Waves -------------------------------------------------------------------
@@ -384,7 +431,7 @@ func _end_run() -> void:
 	get_tree().paused = true
 
 	_record_result()
-	_gameover_label.text = "YOU DIED\n\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to restart" % [
+	_gameover_label.text = "YOU DIED\n\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to replay   ·   ESC for menu" % [
 		_format_time(_elapsed), _score(),
 		_kills, _kill_score,
 		_format_time(_elapsed), Score.PER_SECOND, int(_elapsed) * Score.PER_SECOND,

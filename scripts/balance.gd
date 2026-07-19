@@ -265,6 +265,8 @@ const SFX_DB := {
 }
 ## Minimum gap between two plays of the SAME sound. Dozens of enemies can die
 ## in one frame; without this the mix turns to mush.
+const DEFAULT_MUSIC_VOLUME := 0.7
+const DEFAULT_SFX_VOLUME := 0.8
 const SFX_RETRIGGER_GAP := 0.035
 const SFX_VOICES := 16
 

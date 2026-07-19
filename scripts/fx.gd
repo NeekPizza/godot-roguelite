@@ -34,7 +34,8 @@ func burst(at: Vector2, color: Color, count: int, speed: float = 150.0) -> void:
 
 
 func add_shake(amount: float) -> void:
-	_shake = minf(Balance.SHAKE_MAX, _shake + amount)
+	# Scaled by the accessibility setting; at 0 shake is fully disabled.
+	_shake = minf(Balance.SHAKE_MAX, _shake + amount * SettingsStore.shake_scale)
 
 
 func _process(delta: float) -> void:

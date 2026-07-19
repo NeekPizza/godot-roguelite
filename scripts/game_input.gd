@@ -14,7 +14,9 @@ const ACTIONS := {
 	"move_right": {"keys": [KEY_D, KEY_RIGHT], "axis": [JOY_AXIS_LEFT_X,  1.0], "buttons": [JOY_BUTTON_DPAD_RIGHT]},
 	"move_up":    {"keys": [KEY_W, KEY_UP],    "axis": [JOY_AXIS_LEFT_Y, -1.0], "buttons": [JOY_BUTTON_DPAD_UP]},
 	"move_down":  {"keys": [KEY_S, KEY_DOWN],  "axis": [JOY_AXIS_LEFT_Y,  1.0], "buttons": [JOY_BUTTON_DPAD_DOWN]},
-	"restart":    {"keys": [KEY_R],            "axis": [],                      "buttons": [JOY_BUTTON_START]},
+	"restart":    {"keys": [KEY_R],            "axis": [],                      "buttons": [JOY_BUTTON_Y]},
+	# Start/Escape pauses. Restart moved to Y so the two never clash on a pad.
+	"pause":      {"keys": [KEY_ESCAPE],       "axis": [],                      "buttons": [JOY_BUTTON_START]},
 	# Hold to steer toward the cursor. Registered as an action rather than
 	# polled directly so Phase 5's remapping screen can reach it.
 	"move_pointer": {"keys": [], "axis": [], "buttons": [], "mouse": [MOUSE_BUTTON_LEFT]},

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Daily Seed"
-run/main_scene="res://scenes/run.tscn"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
@@ -21,6 +21,8 @@ Sfx="*res://scripts/sfx.gd"
 Music="*res://scripts/music.gd"
 SaveStore="*res://scripts/save_store.gd"
 RunConfig="*res://scripts/run_config.gd"
+SettingsStore="*res://scripts/settings_store.gd"
+Screenshot="*res://scripts/screenshot.gd"
 
 [display]
 

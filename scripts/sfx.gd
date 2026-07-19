@@ -22,6 +22,9 @@ const SOUNDS := {
 	"run_over": preload("res://assets/sfx/run_over.wav"),
 }
 
+## Applied on top of each sound's mix level, driven by the settings slider.
+var volume_offset_db := 0.0
+
 var _voices: Array[AudioStreamPlayer] = []
 var _next_voice := 0
 var _last_played := {}
@@ -77,5 +80,5 @@ func play(sound_name: String, volume_db: float = NAN) -> void:
 	var voice := _voices[_next_voice]
 	_next_voice = (_next_voice + 1) % VOICES
 	voice.stream = SOUNDS[sound_name]
-	voice.volume_db = volume_db
+	voice.volume_db = volume_db + volume_offset_db
 	voice.play()

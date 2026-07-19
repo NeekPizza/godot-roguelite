@@ -1,0 +1,171 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/settings_panel.tscn" id="2"]
+
+[node name="MainMenu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.047, 0.078, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Root" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 22
+
+[node name="Title" type="Label" parent="Center/Root"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 64
+horizontal_alignment = 1
+text = "DAILY SEED"
+
+[node name="Tagline" type="Label" parent="Center/Root"]
+theme_override_colors/font_color = Color(1, 0.28, 0.85, 1)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "one seed a day — everyone plays the same run"
+
+[node name="Status" type="Label" parent="Center/Root"]
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+text = "-"
+
+[node name="Buttons" type="VBoxContainer" parent="Center/Root"]
+theme_override_constants/separation = 10
+
+[node name="Ranked" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 48)
+theme_override_font_sizes/font_size = 22
+text = "TODAY — RANKED"
+
+[node name="Practice" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 42)
+theme_override_font_sizes/font_size = 20
+text = "TODAY — PRACTICE"
+
+[node name="Archive" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 42)
+theme_override_font_sizes/font_size = 20
+text = "ARCHIVE — PAST SEEDS"
+
+[node name="Settings" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 42)
+theme_override_font_sizes/font_size = 20
+text = "SETTINGS"
+
+[node name="Quit" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 42)
+theme_override_font_sizes/font_size = 20
+text = "QUIT"
+
+[node name="Confirm" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="Confirm"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.9)
+
+[node name="Center" type="CenterContainer" parent="Confirm"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="Confirm/Center"]
+theme_override_constants/separation = 24
+
+[node name="Text" type="Label" parent="Confirm/Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.92, 0.25, 1)
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+text = "-"
+
+[node name="Row" type="HBoxContainer" parent="Confirm/Center/Panel"]
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Yes" type="Button" parent="Confirm/Center/Panel/Row"]
+custom_minimum_size = Vector2(200, 46)
+theme_override_font_sizes/font_size = 20
+text = "START RANKED"
+
+[node name="No" type="Button" parent="Confirm/Center/Panel/Row"]
+custom_minimum_size = Vector2(200, 46)
+theme_override_font_sizes/font_size = 20
+text = "Cancel"
+
+[node name="Archive" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="Archive"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.9)
+
+[node name="Center" type="CenterContainer" parent="Archive"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="Archive/Center"]
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Archive/Center/Panel"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 30
+horizontal_alignment = 1
+text = "ARCHIVE — PRACTICE"
+
+[node name="Hint" type="Label" parent="Archive/Center/Panel"]
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+text = "Past seeds, unranked and unlimited.
+Your daily ranked attempt is never touched."
+
+[node name="Row" type="HBoxContainer" parent="Archive/Center/Panel"]
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Prev" type="Button" parent="Archive/Center/Panel/Row"]
+custom_minimum_size = Vector2(90, 44)
+theme_override_font_sizes/font_size = 22
+text = "◀"
+
+[node name="Date" type="Label" parent="Archive/Center/Panel/Row"]
+custom_minimum_size = Vector2(220, 0)
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "-"
+
+[node name="Next" type="Button" parent="Archive/Center/Panel/Row"]
+custom_minimum_size = Vector2(90, 44)
+theme_override_font_sizes/font_size = 22
+text = "▶"
+
+[node name="Best" type="Label" parent="Archive/Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.92, 0.25, 1)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "-"
+
+[node name="Play" type="Button" parent="Archive/Center/Panel"]
+custom_minimum_size = Vector2(0, 46)
+theme_override_font_sizes/font_size = 20
+text = "PLAY THIS SEED"
+
+[node name="Back" type="Button" parent="Archive/Center/Panel"]
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 18
+text = "Back"
+
+[node name="Settings" parent="." instance=ExtResource("2")]
