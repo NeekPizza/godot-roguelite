@@ -41,7 +41,7 @@ func _enter_tree() -> void:
 		_add_pad_button(action_name, UI_PAD_BINDINGS[action_name])
 
 
-func _add_pad_button(action_name: String, button: int) -> void:
+func _add_pad_button(action_name: String, button: JoyButton) -> void:
 	if not InputMap.has_action(action_name):
 		InputMap.add_action(action_name, DEADZONE)
 	for event in InputMap.action_get_events(action_name):
@@ -59,21 +59,21 @@ func _register(action_name: String, cfg: Dictionary) -> void:
 
 	for keycode in cfg["keys"]:
 		var key_event := InputEventKey.new()
-		key_event.physical_keycode = keycode
+		key_event.physical_keycode = keycode as Key
 		InputMap.action_add_event(action_name, key_event)
 
 	if not cfg["axis"].is_empty():
 		var motion := InputEventJoypadMotion.new()
-		motion.axis = cfg["axis"][0]
+		motion.axis = cfg["axis"][0] as JoyAxis
 		motion.axis_value = cfg["axis"][1]
 		InputMap.action_add_event(action_name, motion)
 
 	for button in cfg["buttons"]:
 		var button_event := InputEventJoypadButton.new()
-		button_event.button_index = button
+		button_event.button_index = button as JoyButton
 		InputMap.action_add_event(action_name, button_event)
 
 	for mouse_button in cfg.get("mouse", []):
 		var mouse_event := InputEventMouseButton.new()
-		mouse_event.button_index = mouse_button
+		mouse_event.button_index = mouse_button as MouseButton
 		InputMap.action_add_event(action_name, mouse_event)

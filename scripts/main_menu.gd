@@ -198,7 +198,10 @@ func _launch_archive() -> void:
 
 
 func _start_run() -> void:
-	get_tree().change_scene_to_file(RUN_SCENE)
+	# Deferred: on the CLI auto-start path this is reached from _ready(), and
+	# swapping scenes while the tree is still adding this one's children throws
+	# "Parent node is busy adding/removing children".
+	get_tree().change_scene_to_file.call_deferred(RUN_SCENE)
 
 
 func _quit() -> void:
