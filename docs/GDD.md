@@ -1,9 +1,12 @@
 # Game Design Document — *Daily Seed* (working title)
 
-**Version 1.2** — content expansion: dash, a weapon roster with seed-limited
+**Version 1.3** — **stage progression.** The run is cut into escalating,
+boss-gated stages with per-stage clocks, schedules, palettes and rosters.
+Planned in sections 16 and 17; nothing in this version is built yet.
+
+*(v1.2 was the content expansion: dash, a weapon roster with seed-limited
 slots, evolutions, a combo multiplier, drops, an expanded bestiary with elites,
-and multiple telegraphed boss archetypes. Planned in section 14, data shapes in
-section 15. Nothing in this version is built yet.
+and multiple telegraphed boss archetypes. Planned in section 14, data shapes in section 15.)*
 
 *(v1.1 made the run endless and removed the win state. v1.0 was a fixed
 10-minute run.)*
@@ -25,10 +28,16 @@ a global Steam leaderboard. No netcode, no servers.
 ## 1. Core loop
 
 ```
-Enter daily run  →  move + auto-attack  →  kill enemies  →  collect XP
-      ↑                                                        ↓
-  compare score  ←     run ends (death)      ←  level up (pick 1 of 3)
+        ┌─────────────── one stage ───────────────┐
+Enter → │ fight → level up → BOSS → clear → PORTAL│ → next stage → …
+        └─────────────────────────────────────────┘
+                              ↓
+                     run ends (death only)
 ```
+
+Every stage is a self-contained escalation: its own clock, spawn schedule, drop
+schedule, palette, enemy roster and boss. Kill the boss, walk into the portal it
+leaves behind, and the next stage begins harder.
 
 Moment-to-moment: the player never presses an attack button. They **position**.
 All skill expression is in movement — kiting, funneling enemies into clusters,
@@ -48,9 +57,10 @@ difficulty ramp climbs without bound (section 7), so every run ends eventually.
 
 - **Death** ends the run immediately; the score stands and is submitted. Dying
   is not a failure that wastes your attempt — it is simply how runs finish.
-- **Ranking is score-at-death.** Nobody "beats" the game. The leaderboard
-  spreads by *how deep you got*, which is what keeps a daily seed interesting
-  past the first week: there is always a deeper run.
+- **Ranking is score-at-death**, with **stage reached** stored and shown
+  alongside it. Nobody "beats" the game. The board spreads by *how deep you
+  got* — and from v1.3 "deep" is a literal, legible number rather than an
+  inference from score.
 - There is **exactly one ranked attempt per day.**
 
 Removing the win state is what makes the leaderboard the point. With a fixed
@@ -686,10 +696,12 @@ CC0 or self-generated only.
 
 - **Endless play.** The fixed 10-minute run and its win state are *removed*, not
   deferred: there is no clear condition to come back to.
-- **v1.2 content expansion** — moved in from the list below, planned in
-  section 14: a six-weapon roster with seed-limited slots, weapon evolutions, a
-  combo multiplier, drops and temporary weapons, four more enemies plus elites,
-  and three telegraphed boss archetypes. Plus a dash.
+- **v1.2 content expansion** — planned in section 14: a weapon roster with
+  seed-limited slots, weapon evolutions, a combo multiplier, drops and temporary
+  weapons, four more enemies plus elites, telegraphed boss archetypes, a dash.
+- **v1.3 stage progression** (sections 16–19): boss-gated stages with per-stage
+  clocks, schedules, palettes and rosters; portals; boss enrage; stage reached
+  tracked alongside score.
 
 **Still OUT** — recorded so these get re-proposed as *post-launch*, not smuggled
 into the build:
@@ -698,7 +710,11 @@ into the build:
 - Ghosts / replay racing (best v2 candidate)
 - Multiple characters or starting loadouts
 - Meta-progression / permanent unlocks between runs
-- Multiple maps or biomes
+- **Per-stage obstacles / terrain** — explicitly deferred to a later sub-phase
+  (7e). Collision geometry and the pathing it forces on nine enemy behaviours is
+  a system of its own, and stages deliver their escalation through palette,
+  roster and multipliers without it.
+- Multiple maps or biomes beyond the per-stage palette cycle
 - Player characters with different starting kits
 - Per-weapon passive trees (passives stay global — see section 4)
 
@@ -933,4 +949,218 @@ DASH    = {distance: 190.0, duration: 0.16, iframes: 0.32, cooldown: 3.0,
            alpha: 0.45, afterimages: 3}
 REROLLS = 3
 BANISHES = 2
+```
+
+---
+
+## 16. Stage progression (v1.3)
+
+### The problem it fixes
+
+The run currently has no shape. Difficulty rises smoothly, a boss arrives every
+three minutes, you kill it, and *nothing changes*. There is no arrival, no
+breather, and no legible sense of getting further — only a score that grows.
+
+Stages give the run a spine: **fight → boss → portal → a visibly harder place.**
+
+### The loop
+
+| Phase | What happens |
+|---|---|
+| **Combat** | Stage clock runs, waves spawn, difficulty ramps *within* the stage |
+| **Boss** | At the end of the combat phase the stage boss spawns. **Regular spawns stop entirely.** |
+| **Clear** | Boss dies → a shockwave clears remaining regulars → a genuine breather |
+| **Report** | "STAGE N COMPLETE" card showing exactly what gets harder next |
+| **Portal** | A portal stands where the boss fell; walk in to advance |
+
+### Stages are derived, never authored
+
+Stage *N*'s configuration is a pure function of `(daily_seed, N)`, so the ladder
+is endless without a hand-written list:
+
+| Quantity | Rule (applied `N-1` times) |
+|---|---|
+| Enemy HP | × 1.40 |
+| Enemy damage | × 1.20 |
+| Spawn interval | × 0.90, floored |
+| Enemies per spawn | +1 every 2 stages |
+| Score per kill | × 1.20 |
+| Combat duration | 150 s, constant for now |
+| Palette | cycles through 6, intensity rising with N |
+| Enemy roster | `hash(seed,"stage",N,"roster")`, widening with N |
+| Boss archetype | `hash(seed,"boss",N)` — the existing indexed stream |
+
+Score scaling matters: **depth has to pay**, or a player optimises by farming a
+shallow stage forever.
+
+### The fairness model changes, deliberately
+
+Today every player is on one absolute clock. From v1.3 they are not:
+
+> **Every player gets identical Stage N content. They reach it at their own
+> pace.** Skill is depth.
+
+A stage's schedule is seeded from `(daily_seed, stage_index)` and its clock
+starts at zero **when the player enters**. Two players who reach Stage 4 twenty
+minutes apart fight the same Stage 4.
+
+### Anti-stall: boss enrage
+
+A boss the player cannot kill must not become a camping spot. From
+`ENRAGE_DELAY` (40 s) after the boss spawns, every `ENRAGE_STEP` (10 s):
+
+- boss damage × 1.20
+- volley cadence × 0.92, floored at `BOSS_CADENCE_MIN`
+- bullet speed × 1.08
+- the boss visibly reddens, one step at a time
+
+The telegraph floor still holds. Enrage makes stalling lethal without making it
+unreadable.
+
+### Presentation
+
+1. **Calm beat** — the boss's death shockwave clears remaining regulars and
+   awards **no score**, which both creates a real breather and removes the
+   "let trash pile up, then kill the boss" exploit. The run has no breathing
+   points at all today; this is the first.
+2. **Escalation readout** — the STAGE COMPLETE card states the increase in
+   plain numbers: enemy HP +40%, damage +20%, new types entering, next boss.
+   Making the difficulty increase *legible* is half the point of the feature.
+3. **Portal** at the boss's death position, tinted with the *next* stage's
+   accent as a teaser.
+4. **New arena** — palette shift carries the visual change, since all art is
+   procedural.
+
+### Palette rule
+
+The stage palette recolours the **arena only**: background, grid, walls, portal.
+**Enemy colours do not change per stage.** GDD section 11 requires shape to
+carry identity, and re-hueing enemies every stage would throw away the
+recognition a player has built up — exactly when the screen is getting busier.
+
+---
+
+## 17. Stage determinism (v1.3) ⚠️
+
+The per-stage rework touches the seed contract, so the rules are set out
+explicitly.
+
+### Per-stage streams
+
+| Stream | Key |
+|---|---|
+| stage spawn | `hash(date,"spawn",N)` |
+| stage drops | `hash(date,"drops",N)` |
+| stage roster | `hash(date,"stage",N,"roster")` |
+| boss slot | `hash(date,"boss",N)` |
+
+Every one is keyed by stage index, never a single running stream. **This is what
+contains divergence.** How long a player takes to kill the Stage 3 boss is
+player-dependent; if a shared stream carried across stages, that duration would
+shift Stage 4's content and two players on one seed would stop playing the same
+game.
+
+### The portal position must never leak
+
+The portal appears where the boss died, which is player-dependent. So:
+
+- Portal position feeds **nothing**. It is presentation only.
+- Stage N+1's streams are keyed on `(date, N+1)` and nothing else.
+- The player always enters a new stage at the **arena centre**, a fixed point —
+  never at a position derived from where they entered the portal.
+
+If any of those three slipped, one player's boss fight would silently reshape
+the next stage for them alone.
+
+### Spawns stop during the boss fight
+
+Proposed rather than assumed, because it has a determinism consequence as well
+as a design one. Stopping regular spawns entirely means a stage consumes a
+**fixed** number of spawn draws, so the whole stage is identical for everyone.
+A trickle would leave the stage's tail dependent on fight length. Divergence
+would still be contained by the per-stage keying, but "identical Stage N" is a
+stronger and simpler promise to keep.
+
+### Other rules
+
+- The clear shockwave triggers **no** kill handlers: no score, no elite drops,
+  no RNG. It is a removal, not a thousand kills.
+- Uncollected drops do not survive a stage transition; the arena is replaced.
+- Enrage is time-driven and consumes no randomness.
+- The digest gains stage index, stage phase, stage clock, and each per-stage
+  stream's state.
+
+### The test needs a new lever
+
+The determinism check must cross several stage transitions, and advancing
+requires actually killing bosses — which a scripted player with a starting
+loadout will not manage against scaling boss HP. A test-only
+`--boss-hp-mult=0.02` hook lets the harness traverse stages quickly. It joins
+`TEST_HOOK_ARGS`, so as with every other hook a run using it **can never be
+ranked**.
+
+---
+
+---
+
+## 18. v1.3 rollout plan
+
+Four sub-phases. Each is committed, pushed and determinism-checked on its own,
+and each extends the digest with what it adds.
+
+| Phase | Scope | Determinism work |
+|---|---|---|
+| **7a** | Stage state machine (Combat → Boss → Clear → Portal), per-stage clocks, per-stage spawn/drop/roster streams, boss at end of combat, spawns stop during boss, stage scaling multipliers | The whole per-stage rekeying. New `--boss-hp-mult` test hook so the check can cross stages. Digest gains stage index, phase, clock, stream states. |
+| **7b** | Portal entity, death shockwave, calm beat, stage transition, STAGE COMPLETE card with the escalation readout | Portal position must feed nothing; player re-enters at arena centre. |
+| **7c** | Per-stage palettes (arena only) and per-stage enemy rosters | Roster from the stage stream; enemy colours deliberately unchanged. |
+| **7d** | Boss enrage, stage-reached tracking in saves / game-over / local table, GDD and scope-ledger updates | Enrage is time-driven, consumes no RNG. |
+
+**Ordering is forced:** 7a establishes the clocks everything else keys off, and
+the portal (7b) has nothing to connect until stages exist. Palettes (7c) are
+cosmetic and deliberately last-but-one so they cannot mask a logic problem.
+
+### Definition of done, per sub-phase
+
+1. `tools/determinism_check.sh` green **including its negative control**, and
+   from 7a onward the run must cross **at least three stage transitions**.
+2. Digest extended with that phase's new state.
+3. All eleven suites green.
+4. Every new number in `balance.gd`.
+5. A real run played.
+
+---
+
+## 19. Data shapes (v1.3)
+
+```gdscript
+STAGE = {
+  combat_duration: 150.0,          # seconds before the boss spawns
+  hp_mult: 1.40,                   # all applied (N-1) times
+  damage_mult: 1.20,
+  interval_mult: 0.90,
+  interval_floor: 0.12,
+  count_bonus_every: 2,            # +1 enemy per spawn every N stages
+  score_mult: 1.20,
+  roster_pick_base: 4,             # widens with depth
+  roster_pick_every: 3,
+}
+
+STAGE_PALETTES = [                 # cycles; index (N-1) % size
+  {background, grid, wall, accent},
+  ...                              # 6 entries
+]
+
+BOSS_ENRAGE = {
+  delay: 40.0, step: 10.0,
+  damage_mult: 1.20, cadence_mult: 0.92, speed_mult: 1.08,
+  tint: Color(1.0, 0.35, 0.35),
+}
+
+STAGE_CLEAR = {
+  shockwave_delay: 0.35,           # beat before the field clears
+  calm_duration: 3.5,              # breather before the card
+  awards_score: false,             # closes the pile-up-then-kill exploit
+}
+
+PORTAL = {radius: 34.0, spin: 1.4, pull_hint: 60.0}
 ```
