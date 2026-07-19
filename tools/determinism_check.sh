@@ -24,7 +24,8 @@ SECONDS_LIMIT="${2:-900}"
 SCALE="${3:-10}"
 
 run() {  # $1 = scripted input seed
-  godot --headless -- --date="$DATE" --scripted-input="$1" \
+  godot --headless -- --save-file=determinism_check.json \
+    --date="$DATE" --scripted-input="$1" \
     --time-scale="$SCALE" --max-seconds="$SECONDS_LIMIT" \
     --auto-pick --godmode --quit-on-end 2>&1 \
     | grep -E '^\[digest\]|^\[run\] over'

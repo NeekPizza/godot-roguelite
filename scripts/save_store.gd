@@ -61,6 +61,25 @@ func load_from_disk() -> void:
 	for key in _default_data():
 		if parsed.has(key):
 			_data[key] = parsed[key]
+	_normalise_numbers()
+
+
+## JSON has no integer type, so every number comes back as a float: a score
+## written as 10114 reloads as 10114.0. Display paths coerce anyway, but Steam
+## leaderboards take an int32 and float drift is not something to discover at
+## submission time. Coerce once, here, at the boundary.
+const _INT_FIELDS := ["score", "kills", "seconds", "level", "bosses"]
+
+
+func _normalise_numbers() -> void:
+	for entry in _data["scores"]:
+		for field in _INT_FIELDS:
+			if entry.has(field):
+				entry[field] = int(entry[field])
+	for date_string in _data["ranked"]:
+		var record: Dictionary = _data["ranked"][date_string]
+		if record.has("score"):
+			record["score"] = int(record["score"])
 
 
 func save_to_disk() -> void:
