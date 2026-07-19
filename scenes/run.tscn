@@ -41,6 +41,8 @@ script = ExtResource("3")
 
 [node name="EnemyShots" type="Node2D" parent="."]
 
+[node name="Pickups" type="Node2D" parent="."]
+
 [node name="Player" parent="." instance=ExtResource("2")]
 
 [node name="Fx" type="Node2D" parent="."]
@@ -107,6 +109,16 @@ theme_override_styles/fill = SubResource("HpFill")
 max_value = 100.0
 value = 100.0
 show_percentage = false
+
+[node name="BuffLabel" type="Label" parent="HUD/Root"]
+anchor_right = 1.0
+offset_left = 470.0
+offset_top = 80.0
+offset_right = -16.0
+offset_bottom = 102.0
+theme_override_colors/font_color = Color(0.75, 0.55, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = ""
 
 [node name="ComboLabel" type="Label" parent="HUD/Root"]
 anchor_left = 1.0

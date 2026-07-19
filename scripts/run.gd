@@ -12,6 +12,7 @@ extends Node2D
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 const BOSS_SCENE := preload("res://scenes/boss.tscn")
+const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 
 enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 
@@ -20,6 +21,7 @@ enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 @onready var _projectiles: Node2D = $Projectiles
 @onready var _enemy_shots: Node2D = $EnemyShots
 @onready var _gems: Node2D = $Gems
+@onready var _pickups: Node2D = $Pickups
 @onready var _fx: Node2D = $Fx
 var _weapons: Node2D
 
@@ -32,6 +34,7 @@ var _weapons: Node2D
 @onready var _health_label: Label = $HUD/Root/HealthLabel
 @onready var _weapons_label: Label = $HUD/Root/WeaponsLabel
 @onready var _combo_label: Label = $HUD/Root/ComboLabel
+@onready var _buff_label: Label = $HUD/Root/BuffLabel
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
@@ -66,6 +69,14 @@ var _banishes_left := Balance.BANISHES_PER_RUN
 var _banish_armed := false
 var _current_cards: Array = []
 var _weapon_slots := 3
+
+# --- Drops (6d) ---
+var _drop_schedule: Array = []
+var _next_drop := 0
+var _buff_id := ""            # instant/buff effect currently running
+var _buff_time := 0.0
+var _splash_time := 0.0       # splash is a modifier, so it runs alongside
+var _drops_taken := 0
 
 # --- Combo (6c) ---
 var _combo_chain := 0.0
@@ -122,7 +133,7 @@ func _ready() -> void:
 	# so the line above would silently hand ALWAYS to every gameplay node and
 	# make get_tree().paused a no-op — enemies would keep advancing while the
 	# player reads upgrade cards. Pin the gameplay subtrees back to PAUSABLE.
-	for node in [_player, _enemies, _projectiles, _enemy_shots, _gems, _fx]:
+	for node in [_player, _enemies, _projectiles, _enemy_shots, _gems, _pickups, _fx]:
 		node.process_mode = Node.PROCESS_MODE_PAUSABLE
 
 	_fx.camera = _player.get_node("Camera")
@@ -142,6 +153,12 @@ func _ready() -> void:
 	# spent because it changes how you draft.
 	_weapon_slots = Daily.weapon_slots(_date_string)
 	print("[run] weapon slots today: %d" % _weapon_slots)
+
+	# The entire run's drops, decided now: what, when, and at which absolute
+	# world position. Nothing is rolled during play.
+	_drop_schedule = Drops.build_schedule(_date_string)
+	print("[run] drop schedule: %d entries, first at %.1fs" % [
+		_drop_schedule.size(), float(_drop_schedule[0]["time"])])
 
 	_weapons = _player.get_node("WeaponSystem")
 	_weapons.player = _player
@@ -188,6 +205,8 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_tick_combo(step)
+	_tick_buffs(step)
+	_check_drop_schedule()
 	_check_boss_schedule()
 	_schedule_waves(step)
 	_update_hud()
@@ -236,6 +255,126 @@ func _tint_bar(bar: ProgressBar, colour: Color) -> void:
 		var styled: StyleBoxFlat = fill.duplicate()
 		styled.bg_color = colour
 		bar.add_theme_stylebox_override("fill", styled)
+
+
+## Active buffs as icon-ish text plus a countdown, beside the EXP bar. A timed
+## effect the player cannot see running is one they cannot play around.
+func _buff_text() -> String:
+	var parts := PackedStringArray()
+	if _buff_time > 0.0 and _buff_id != "":
+		parts.append("%s %.0fs" % [Balance.DROPS[_buff_id]["name"], ceil(_buff_time)])
+	if _splash_time > 0.0:
+		parts.append("Splash %.0fs" % ceil(_splash_time))
+	return "   ".join(parts)
+
+
+# --- Drops -------------------------------------------------------------------
+
+func _check_drop_schedule() -> void:
+	while _next_drop < _drop_schedule.size() \
+			and _elapsed >= float(_drop_schedule[_next_drop]["time"]):
+		var entry: Dictionary = _drop_schedule[_next_drop]
+		_spawn_pickup(entry["id"], entry["position"])
+		_next_drop += 1
+
+
+func _spawn_pickup(drop_id: String, at: Vector2) -> void:
+	var pickup := PICKUP_SCENE.instantiate()
+	pickup.position = at
+	pickup.setup(drop_id)
+	pickup.collected.connect(_on_pickup_collected)
+	_pickups.add_child.call_deferred(pickup)
+
+
+func _on_pickup_collected(drop_id: String, _pickup: Area2D) -> void:
+	_drops_taken += 1
+	var config: Dictionary = Balance.DROPS[drop_id]
+	Sfx.play("xp_pickup", -4.0)
+	_fx.burst(_player.position, config.get("color", Color.WHITE), 22, 240.0)
+
+	match config["kind"]:
+		"instant":
+			_apply_instant(drop_id, config)
+		"buff":
+			_buff_id = drop_id
+			_buff_time = float(config["duration"])
+			_player.invuln_time = float(config["duration"])
+		"temp_weapon":
+			if config.get("modifier", "") == "splash":
+				_splash_time = float(config["duration"])
+			else:
+				_weapons.temp_weapon_id = drop_id
+				_buff_id = drop_id
+				_buff_time = float(config["duration"])
+
+
+func _apply_instant(drop_id: String, config: Dictionary) -> void:
+	match config["effect"]:
+		"heal":
+			_player.heal(float(config["amount"]))
+		"sweep_xp":
+			for gem in get_tree().get_nodes_in_group("xp_gem"):
+				gem.attract_to(_player)
+		"blast":
+			_detonate(config)
+	if drop_id == "bomb":
+		_fx.add_shake(Balance.SHAKE_ON_BOSS_KILL)
+
+
+## Bomb. Radius is WORLD-space, never the viewport: screen size varies with
+## resolution and fullscreen, so a viewport-based blast would clear a different
+## set of enemies for different players on the same seed.
+func _detonate(config: Dictionary) -> void:
+	var radius := float(config["world_radius"])
+	var damage := float(config["damage"])
+	var boss_fraction := float(config["boss_damage_fraction"])
+	# Snapshot the child list: take_damage frees nodes as we iterate.
+	for enemy in _enemies.get_children():
+		if not is_instance_valid(enemy):
+			continue
+		if _player.position.distance_to(enemy.position) > radius:
+			continue
+		if enemy.is_in_group("boss"):
+			enemy.take_damage(enemy.max_hp * boss_fraction)   # capped, never an instakill
+		else:
+			enemy.take_damage(damage)
+
+
+func _tick_buffs(delta: float) -> void:
+	_splash_time = maxf(0.0, _splash_time - delta)
+	if _buff_time > 0.0:
+		_buff_time = maxf(0.0, _buff_time - delta)
+		if _buff_time <= 0.0:
+			if _weapons.temp_weapon_id == _buff_id:
+				_weapons.temp_weapon_id = ""
+			_buff_id = ""
+
+
+## Splash: a killed enemy detonates for a fraction of its max HP.
+##
+## Iterates the enemy container in CHILD ORDER — that is, spawn order — and is
+## depth-capped. instance_id and dictionary order are not stable across runs, so
+## either would let a chain branch differently on two machines from identical
+## state, which is exactly the class of bug the seed contract exists to prevent.
+func _splash_from(origin: Vector2, source_max_hp: float, depth: int) -> void:
+	var config: Dictionary = Balance.DROPS["splash"]
+	if depth >= int(config["chain_depth_max"]):
+		return
+	var radius := float(config["radius"])
+	var damage := source_max_hp * float(config["hp_fraction"])
+
+	for enemy in _enemies.get_children():
+		if not is_instance_valid(enemy) or enemy.is_in_group("boss"):
+			continue
+		if origin.distance_to(enemy.position) > radius:
+			continue
+		var victim_hp: float = enemy.max_hp
+		var victim_position: Vector2 = enemy.position
+		var lethal: bool = enemy.hp <= damage
+		enemy.take_damage(damage)
+		if lethal:
+			_splash_from(victim_position, victim_hp, depth + 1)
+	_fx.burst(origin, Balance.DROPS["splash"]["color"], 14, 200.0)
 
 
 # --- Combo -------------------------------------------------------------------
@@ -531,6 +670,9 @@ func _on_enemy_killed(enemy: Area2D) -> void:
 	_fx.add_shake(Balance.SHAKE_ON_KILL)
 	Sfx.play("enemy_death")
 
+	if _splash_time > 0.0:
+		_splash_from(enemy.position, enemy.max_hp, 0)
+
 	if enemy.stats.has("splits_into"):
 		_split(enemy)
 
@@ -653,9 +795,10 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops=%d/%d schedule=%s" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
+		_drops_taken, _next_drop, Drops.schedule_digest(_drop_schedule),
 	]
 
 
@@ -677,6 +820,7 @@ func _update_hud() -> void:
 	else:
 		_combo_label.text = ""
 	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
+	_buff_label.text = _buff_text()
 	_weapons_label.text = "%s     [%d/%d slots]" % [
 		_weapons.summary(), _weapons.slots_used(), _weapon_slots]
 	_hp_bar.value = _player.hp

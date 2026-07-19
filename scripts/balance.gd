@@ -369,6 +369,53 @@ const SCORE_HISTORY_MAX := 200
 const SCORE_TABLE_ROWS := 5
 
 # =============================================================================
+# DROPS (6d)
+# =============================================================================
+## Every drop's WHAT, WHEN and WHERE is precomputed from the `drops` stream at
+## run start. Nothing here is ever rolled during play, and nothing is placed
+## relative to the player — drops exist to pull you somewhere you would rather
+## not go, and a drop that walks to you is a reward for nothing.
+const DROPS := {
+	"bomb": {"kind": "instant", "effect": "blast", "name": "Bomb", "weight": 0.16,
+		## World-space radius, NEVER the viewport. Screen size varies with
+		## resolution and fullscreen, so a viewport-based blast would clear a
+		## different set of enemies for different players on the same seed.
+		"world_radius": 900.0, "damage": 9999.0,
+		"boss_damage_fraction": 0.25,
+		"color": Color(1.0, 0.55, 0.15)},
+	"magnet": {"kind": "instant", "effect": "sweep_xp", "name": "Magnet",
+		"weight": 0.20, "color": Color(1.0, 0.92, 0.25)},
+	"health": {"kind": "instant", "effect": "heal", "name": "Repair",
+		"weight": 0.22, "amount": 35.0, "color": Color(0.3, 0.95, 0.45)},
+	"invuln": {"kind": "buff", "effect": "invuln", "name": "Shield",
+		"weight": 0.12, "duration": 6.0, "color": Color(0.55, 0.85, 1.0)},
+	"shotgun": {"kind": "temp_weapon", "name": "Shotgun", "weight": 0.10,
+		"duration": 25.0, "damage": 11.0, "cooldown": 0.55, "count": 7,
+		"spread": 0.62, "speed": 520.0, "pierce": 1, "lifetime": 0.45,
+		"color": Color(1.0, 0.45, 0.35)},
+	"machine_gun": {"kind": "temp_weapon", "name": "Machine Gun", "weight": 0.10,
+		"duration": 25.0, "damage": 5.0, "cooldown": 0.07, "count": 1,
+		"spread": 0.10, "speed": 780.0, "pierce": 0, "lifetime": 1.1,
+		"color": Color(1.0, 0.85, 0.35)},
+	"splash": {"kind": "temp_weapon", "name": "Splash", "weight": 0.10,
+		"duration": 25.0, "modifier": "splash",
+		## Chains are depth-capped and RNG-free. Uncapped, one kill could
+		## cascade across the whole field — and a cascade that branched
+		## differently between machines would break the seed outright.
+		"hp_fraction": 0.50, "radius": 150.0, "chain_depth_max": 3,
+		"color": Color(0.75, 0.55, 1.0)},
+}
+
+## Absolute times and absolute world positions, generated up front.
+const DROP_FIRST_TIME := 40.0
+const DROP_INTERVAL := 34.0
+const DROP_JITTER := 12.0
+const DROP_SCHEDULE_COUNT := 80        # far past any survivable run length
+const DROP_EDGE_MARGIN := 160.0
+const DROP_PICKUP_RADIUS := 26.0
+const DROP_MARKER_RADIUS := 13.0
+
+# =============================================================================
 # PICKUPS
 # =============================================================================
 ## Single source of truth: the EXP bar reads this so the bar and the gems on the

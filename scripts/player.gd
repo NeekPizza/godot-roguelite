@@ -45,6 +45,7 @@ var _iframes := 0.0
 var _fire_cooldown := 0.0
 
 # --- Dash state ---
+var invuln_time := 0.0           # Shield drop
 var dashes_used := 0             # exposed for the determinism digest
 var _dash_time_left := 0.0       # >0 while the burst is moving
 var _dash_iframes := 0.0         # tracked apart from damage i-frames so the
@@ -76,6 +77,7 @@ func _physics_process(delta: float) -> void:
 	_iframes = maxf(0.0, _iframes - delta)
 	_dash_iframes = maxf(0.0, _dash_iframes - delta)
 	_dash_cooldown_left = maxf(0.0, _dash_cooldown_left - delta)
+	invuln_time = maxf(0.0, invuln_time - delta)
 	_scripted_elapsed += delta
 
 	_age_afterimages(delta)
@@ -118,6 +120,11 @@ func dash_cooldown_fraction() -> float:
 
 func is_dashing() -> bool:
 	return _dash_time_left > 0.0 or _dash_iframes > 0.0
+
+
+## Any source of invulnerability, for the translucent tell.
+func is_invulnerable() -> bool:
+	return is_dashing() or invuln_time > 0.0
 
 
 func _try_dash() -> void:
@@ -203,6 +210,8 @@ func take_damage(amount: float) -> void:
 		return
 	if _dash_iframes > 0.0:
 		return  # Dashing through it — the whole point of the dash.
+	if invuln_time > 0.0:
+		return  # Shield drop.
 	if _iframes > 0.0 or hp <= 0.0:
 		return  # Already dead: never emit `died` twice.
 	hp -= amount
@@ -244,7 +253,7 @@ func _draw() -> void:
 	var points := _body_points(radius, angle)
 	# Translucent while invulnerable: the tell has to be legible at a glance,
 	# because an unseen i-frame window is indistinguishable from luck.
-	var body_alpha := Balance.DASH_ALPHA if is_dashing() else 1.0
+	var body_alpha := Balance.DASH_ALPHA if is_invulnerable() else 1.0
 	draw_colored_polygon(points, Color(color, body_alpha))
 	# Faked glow: GL Compatibility has no cheap post-process bloom, so we ring
 	# the shape with a translucent outline instead.

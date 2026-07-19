@@ -96,6 +96,22 @@ static func make_daily_rng(date_string: String) -> RandomNumberGenerator:
 	return rng
 
 
+## Ground drops. Consumed only while BUILDING the schedule at run start, never
+## during play, so no player action can advance it.
+static func make_drops_rng(date_string: String) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash_string("%s#drops" % date_string)
+	return rng
+
+
+## Boss slots. Indexed, not running: slot 3 cannot be shifted by what happened
+## at slot 1, and a boss killed early or late changes nothing.
+static func make_boss_rng(date_string: String, slot: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash_string("%s#boss#%d" % [date_string, slot])
+	return rng
+
+
 ## Stream: cosmetics only. Deliberately unseeded. Must never influence
 ## gameplay state.
 static func make_fx_rng() -> RandomNumberGenerator:

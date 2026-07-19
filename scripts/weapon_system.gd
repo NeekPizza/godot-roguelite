@@ -17,6 +17,11 @@ var projectile_parent: Node2D
 ## which matters: the digest and the HUD both read it.
 var owned := {}
 
+## While a temp weapon is active it REPLACES normal fire, per the roster. Splash
+## is not here — it is a modifier on kills, not a weapon.
+var temp_weapon_id := ""
+var _temp_cooldown := 0.0
+
 var _cooldowns := {}          # weapon id -> seconds until next fire
 var _orbit_angle := 0.0
 var _orbs: Array[Node2D] = []
@@ -80,6 +85,10 @@ func _physics_process(delta: float) -> void:
 	if player == null or projectile_parent == null:
 		return
 
+	if temp_weapon_id != "":
+		_tick_temp_weapon(delta)
+		return
+
 	for weapon_id in owned:
 		var stats := Weapons.stats(weapon_id, int(owned[weapon_id]), player)
 		if stats.is_empty():
@@ -94,6 +103,34 @@ func _physics_process(delta: float) -> void:
 			continue
 		_cooldowns[weapon_id] = stats["cooldown"]
 		_fire(stats)
+
+
+func _tick_temp_weapon(delta: float) -> void:
+	var config: Dictionary = Balance.DROPS.get(temp_weapon_id, {})
+	if config.is_empty():
+		return
+	_temp_cooldown -= delta
+	if _temp_cooldown > 0.0:
+		return
+	_temp_cooldown = float(config["cooldown"])
+
+	var aim := _aim_at_nearest()
+	if aim == Vector2.ZERO:
+		return
+	var count := int(config["count"])
+	for i in count:
+		var offset := (float(i) - float(count - 1) * 0.5) * float(config["spread"])
+		var projectile := PROJECTILE_SCENE.instantiate()
+		projectile.position = player.position
+		projectile.setup({
+			"mode": "seek", "direction": aim.rotated(offset),
+			"damage": float(config["damage"]) * player.damage_mult,
+			"pierce": int(config["pierce"]), "speed": float(config["speed"]),
+			"radius": 5.0, "lifetime": float(config["lifetime"]),
+			"curve": 0.0, "origin": player,
+		})
+		projectile_parent.add_child(projectile)
+	Sfx.play("shoot")
 
 
 # --- Firing ------------------------------------------------------------------
