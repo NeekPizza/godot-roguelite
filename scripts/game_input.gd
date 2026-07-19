@@ -23,9 +23,33 @@ const ACTIONS := {
 }
 
 
+## Godot's built-in ui_* actions ship WITHOUT gamepad face buttons for accept
+## and cancel: ui_up/ui_down get the d-pad and stick, but ui_accept is only
+## Enter/Space. A pad player can therefore move the menu focus and never
+## activate anything. These are appended, not replaced, so the keyboard and
+## mouse defaults survive.
+const UI_PAD_BINDINGS := {
+	"ui_accept": JOY_BUTTON_A,
+	"ui_cancel": JOY_BUTTON_B,
+}
+
+
 func _enter_tree() -> void:
 	for action_name in ACTIONS:
 		_register(action_name, ACTIONS[action_name])
+	for action_name in UI_PAD_BINDINGS:
+		_add_pad_button(action_name, UI_PAD_BINDINGS[action_name])
+
+
+func _add_pad_button(action_name: String, button: int) -> void:
+	if not InputMap.has_action(action_name):
+		InputMap.add_action(action_name, DEADZONE)
+	for event in InputMap.action_get_events(action_name):
+		if event is InputEventJoypadButton and event.button_index == button:
+			return
+	var pad_event := InputEventJoypadButton.new()
+	pad_event.button_index = button
+	InputMap.action_add_event(action_name, pad_event)
 
 
 func _register(action_name: String, cfg: Dictionary) -> void:

@@ -18,6 +18,7 @@ upgrade cards, which makes automated checks impossible otherwise.
 | `--time-scale=X` | Multiplies elapsed time, compressing the difficulty ramp so late-game content and later bosses are reachable unattended. Enemy *movement* stays real-time, so this distorts feel — use it to exercise spawn/boss logic, not to judge balance. |
 | `--max-seconds=N` | Ends the run at N elapsed seconds. Purely a harness lever: the game itself is endless and has no time limit. |
 | `--auto-pick` | Auto-selects card 0 at every level-up. Without it, a headless run pauses forever at the first level-up waiting for input that will never arrive. |
+| `--open=confirm\|archive\|settings` | Menu only: jump straight to an overlay. UI states are otherwise reachable only by clicking, which makes them impossible to screenshot or smoke-test unattended. |
 | `--godmode` | Player takes no damage. The only way to exercise the late-tier enemy types unattended — an idle run dies in tier 1-2 and never sees Tanks, Shooters or Splitters spawn. |
 | `--quit-on-end` | Releases audio then calls `get_tree().quit()` when the run finishes. Prefer this over `--quit-after` in CI — it exits on a run boundary rather than mid-frame. |
 | `--date=YYYY-MM-DD` | Play a past seed as unranked **archive practice**. Never consumes a ranked attempt. |
@@ -110,6 +111,7 @@ is fine. Boot a scene instead.
 ```bash
 godot --headless tests/balance_test.tscn                              # data integrity
 godot --headless tests/steering_test.tscn                            # input/steering logic
+godot --headless tests/input_test.tscn                               # controller bindings
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```
@@ -137,3 +139,19 @@ Three things make it meaningful where the old check was not:
 
 It uses a fixed date rather than today's, so it does not silently change meaning
 tomorrow.
+
+## Test hooks cannot produce a ranked score
+
+`--godmode`, `--auto-pick`, `--time-scale`, `--max-seconds` and
+`--scripted-input` all ship in the release binary — Godot passes user args to
+any build, and stripping them is not practical. So instead, `RunConfig` refuses
+to run **ranked** when any of them is present: the run is forced to practice and
+the day's ranked attempt is left untouched.
+
+```bash
+godot -- --ranked --godmode --max-seconds=5 --auto-pick --quit-on-end
+# -> "test hooks active -> forced to practice", ranked ledger stays empty
+```
+
+The anti-cheat posture is deliberately minimal (GDD section 10), but letting
+`--godmode --ranked` submit a score was a step too far to leave in for free.

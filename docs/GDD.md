@@ -432,7 +432,7 @@ into the build:
 | 2 | Content + feel | 5 enemies, 6 upgrades, particles, screen shake, 7 SFX, difficulty ramp |
 | 3 | Daily seed + local scores | **DONE.** Determinism test passes (scripted player + RNG-state digest + negative control); local high-score table; ranked-attempt bookkeeping (one per UTC day, persisted, burned at run start so a mid-run quit grants no retry); archive practice on any past date |
 | 4 | Steam | GodotSteam 4.20 prebuilt GDExtension; leaderboard submit/fetch + achievements; **runs fine with Steam absent** |
-| 5 | Ship prep | Menus, settings, pause, controller, Windows export, release checklist. Includes the **ranked-run confirmation gate** and the archive date-picker UI |
+| 5 | Ship prep | **DONE (except a verified Windows binary).** Main menu with the ranked confirmation gate, archive date picker, settings (audio + screen-shake accessibility + fullscreen), pause, controller bindings verified by test, Windows/macOS export presets, `docs/RELEASE.md`. An actual Windows export needs ~1 GB of export templates and a Windows machine to test on |
 
 **Phase 1 is the real risk gate.** If the one-enemy one-weapon loop isn't fun to
 play for several minutes, no amount of Phase 2 content will save it. Evaluate

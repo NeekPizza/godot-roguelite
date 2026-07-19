@@ -17,6 +17,16 @@ const MODE_ARCHIVE := 2
 
 ## CLI args that mean "skip the menu and start a run" — tests and direct
 ## launches. Anything else (like --save-file) leaves the menu in charge.
+## Flags that alter the simulation or make the player invulnerable. These ship
+## in the release build — Godot exposes user args to any binary — so rather than
+## trying to strip them, a run using ANY of them is forbidden from being ranked.
+## The anti-cheat posture is deliberately minimal (GDD section 10), but letting
+## `--godmode --ranked` submit a score is a step too far for free.
+const TEST_HOOK_ARGS := [
+	"--godmode", "--auto-pick",
+	"--time-scale=", "--max-seconds=", "--scripted-input=",
+]
+
 const AUTO_START_ARGS := [
 	"--ranked", "--practice", "--godmode", "--auto-pick",
 	"--date=", "--max-seconds=", "--time-scale=", "--scripted-input=",
@@ -26,6 +36,8 @@ var date_string := ""
 var mode := MODE_ARCHIVE
 var scripted_input_seed := ""     # test hook; empty means a human is playing
 var auto_start := false
+## True if ANY test hook was passed on the command line.
+var test_hooks_active := false
 
 
 func is_ranked() -> bool:
@@ -78,6 +90,9 @@ func _parse_args() -> void:
 			if arg == prefix or (prefix.ends_with("=") and arg.begins_with(prefix)):
 				auto_start = true
 
+		if arg in TEST_HOOK_ARGS or (arg.contains("=") and (arg.split("=")[0] + "=") in TEST_HOOK_ARGS):
+			test_hooks_active = true
+
 		if arg == "--ranked":
 			# Explicit opt-in. This is the menu's confirmation prompt in CLI form.
 			select_ranked(GameSeed.today_utc())
@@ -98,6 +113,11 @@ func _parse_args() -> void:
 func begin_run() -> bool:
 	if mode != MODE_RANKED:
 		return true
+	if test_hooks_active:
+		push_warning("RunConfig: test hooks active; refusing to run ranked")
+		print("[run] test hooks active -> forced to practice, ranked attempt untouched")
+		mode = MODE_PRACTICE
+		return false
 	if not SaveStore.ranked_available(date_string):
 		push_warning("RunConfig: ranked attempt for %s already used; running as practice"
 			% date_string)
