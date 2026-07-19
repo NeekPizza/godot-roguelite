@@ -77,6 +77,9 @@ var _buff_id := ""            # instant/buff effect currently running
 var _buff_time := 0.0
 var _splash_time := 0.0       # splash is a modifier, so it runs alongside
 var _drops_taken := 0
+var _pickups_scheduled := 0
+var _pickups_elite := 0
+var _pickups_boss := 0
 var _spawn_ordinal := 0
 var _elites_spawned := 0
 var _roster: Array = []
@@ -300,6 +303,7 @@ func _check_drop_schedule() -> void:
 	while _next_drop < _drop_schedule.size() \
 			and _elapsed >= float(_drop_schedule[_next_drop]["time"]):
 		var entry: Dictionary = _drop_schedule[_next_drop]
+		_pickups_scheduled += 1
 		_spawn_pickup(entry["id"], entry["position"])
 		_next_drop += 1
 
@@ -755,6 +759,7 @@ func _on_enemy_killed(enemy: Area2D) -> void:
 
 	# Elites guarantee a drop. The id was fixed at spawn; this only reads it.
 	if enemy.is_elite and enemy.elite_drop != "":
+		_pickups_elite += 1
 		_spawn_pickup(enemy.elite_drop, enemy.position)
 
 	if enemy.stats.has("blast_radius"):
@@ -795,6 +800,7 @@ func _on_boss_killed(boss: Area2D) -> void:
 
 	# The drop was decided when the slot was assigned; this only reads it.
 	if boss.drop_id != "":
+		_pickups_boss += 1
 		_spawn_pickup(boss.drop_id, boss.position)
 
 	_fx.burst(boss.position, boss.colour(),
@@ -889,10 +895,11 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d dropped(sched/elite/boss)=%d/%d/%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
-		_drops_taken, _next_drop, Drops.schedule_digest(_drop_schedule),
+		_drops_taken, _pickups_scheduled, _pickups_elite, _pickups_boss,
+		_next_drop, Drops.schedule_digest(_drop_schedule),
 		",".join(PackedStringArray(_roster)), _elites_spawned,
 		",".join(PackedStringArray(_boss_log)),
 	]

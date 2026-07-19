@@ -342,7 +342,12 @@ const ENEMY_ROSTER_PICK := 4
 ## Rolled as part of the spawn block, so an elite's drop is fixed the moment it
 ## appears and merely read back when it dies — never rolled at death, which is
 ## player-timed.
-const ELITE_CHANCE := 0.045
+## Cut alongside DROP_INTERVAL: elites are the DOMINANT drop source, so drop
+## frequency cannot be tuned without this number. Side effect worth knowing —
+## it also reduces how often you MEET an elite, not merely how often one pays
+## out. Left deliberately, since elites guarantee a drop by design (GDD 5) and
+## making that payout unreliable would be a worse trade.
+const ELITE_CHANCE := 0.030
 const ELITE_HP_MULT := 6.0
 const ELITE_DAMAGE_MULT := 1.5
 const ELITE_SCORE_MULT := 5.0
@@ -520,8 +525,14 @@ const DROPS := {
 }
 
 ## Absolute times and absolute world positions, generated up front.
+## Tuned WITH ELITE_CHANCE, because the two together set the drop rate.
+##
+## Measured over a 15-minute run, drops arrived 26 scheduled / 64 elite / 4 boss
+## — elites were 68% of them. Halving this interval alone would have cut total
+## drops by about a seventh, not half. Both were moved together, remeasured at
+## 16 / 33 / 2, i.e. 51 against the previous 94.
 const DROP_FIRST_TIME := 40.0
-const DROP_INTERVAL := 34.0
+const DROP_INTERVAL := 56.0
 const DROP_JITTER := 12.0
 const DROP_SCHEDULE_COUNT := 80        # far past any survivable run length
 const DROP_EDGE_MARGIN := 160.0
