@@ -74,10 +74,19 @@ func _move(delta: float) -> void:
 
 
 ## Real input, unless a test has installed a synthetic player.
+##
+## Three ways to move, all equivalent: WASD/arrows, left stick, or hold left
+## mouse and steer toward the cursor.
 func _input_direction() -> Vector2:
 	if RunConfig.scripted_input_seed != "":
 		return ScriptedInput.direction(RunConfig.scripted_input_seed, _scripted_elapsed)
-	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+
+	return Steering.direction(
+		Input.get_vector("move_left", "move_right", "move_up", "move_down"),
+		Input.is_action_pressed("move_pointer"),
+		get_global_mouse_position(),
+		position,
+	)
 
 
 func _fire(delta: float) -> void:

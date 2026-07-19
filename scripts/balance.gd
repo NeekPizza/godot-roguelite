@@ -272,3 +272,6 @@ const SFX_VOICES := 16
 # INPUT
 # =============================================================================
 const STICK_DEADZONE := 0.25
+## Radius around the player where a held pointer stops steering. Without it the
+## direction flips every frame when the cursor sits on the ship.
+const POINTER_DEADZONE := 18.0

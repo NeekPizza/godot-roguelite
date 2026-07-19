@@ -15,6 +15,9 @@ const ACTIONS := {
 	"move_up":    {"keys": [KEY_W, KEY_UP],    "axis": [JOY_AXIS_LEFT_Y, -1.0], "buttons": [JOY_BUTTON_DPAD_UP]},
 	"move_down":  {"keys": [KEY_S, KEY_DOWN],  "axis": [JOY_AXIS_LEFT_Y,  1.0], "buttons": [JOY_BUTTON_DPAD_DOWN]},
 	"restart":    {"keys": [KEY_R],            "axis": [],                      "buttons": [JOY_BUTTON_START]},
+	# Hold to steer toward the cursor. Registered as an action rather than
+	# polled directly so Phase 5's remapping screen can reach it.
+	"move_pointer": {"keys": [], "axis": [], "buttons": [], "mouse": [MOUSE_BUTTON_LEFT]},
 }
 
 
@@ -43,3 +46,8 @@ func _register(action_name: String, cfg: Dictionary) -> void:
 		var button_event := InputEventJoypadButton.new()
 		button_event.button_index = button
 		InputMap.action_add_event(action_name, button_event)
+
+	for mouse_button in cfg.get("mouse", []):
+		var mouse_event := InputEventMouseButton.new()
+		mouse_event.button_index = mouse_button
+		InputMap.action_add_event(action_name, mouse_event)

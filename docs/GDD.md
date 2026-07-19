@@ -105,8 +105,9 @@ Finite is a deliberate constraint, not a shortcut: it lets enemy spawn points be
 on a seed gets byte-identical spawn *positions*, not just identical spawn
 *timings*. See section 9.
 
-- Movement: WASD / arrows / left stick. 8-directional, no acceleration ramp —
-  crisp and responsive beats realistic.
+- Movement: **WASD / arrows / left stick, or hold left mouse and steer toward
+  the cursor.** All three are equivalent; keyboard takes priority while both are
+  active so the two never fight. No acceleration ramp — crisp beats realistic.
 - The player is a **neon triangle** that points in the movement direction.
 - No dash in v1. (Candidate first cut if the game feels too easy.)
 
