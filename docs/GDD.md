@@ -136,35 +136,46 @@ Bound to Space, right mouse button, and the pad's right shoulder.
 
 ## 4. Weapons and slots
 
-### The roster (v1.2 — six base weapons)
+Source of truth: `docs/content-roster.md`. Seven base weapons are specified;
+**five ship in v1.2** (see section 14 for which two are held back and why).
 
-Each is a distinct *behaviour*, not a stat variant, and each levels independently
-through the card pool.
+| Weapon | Behaviour | Role | Upgrade dials | v1.2 |
+|---|---|---|---|---|
+| **Pulse** *(exists)* | Seeking shot at the nearest enemy | Reliable single-target | fire rate, damage, pierce, +projectile | Yes |
+| **Orbit** | Orbs circle the player, damage on contact | Passive defence / crowd | +orbs, radius, spin speed, damage | Yes |
+| **Curveball** | Shots arc outward, sweeping an area | Spread / around corners | curve tightness, count, damage | Yes |
+| **Boomerang** | Out and back, hits on both legs | Positional skill | range, count, return speed, pierce | Yes |
+| **Nova** | Expanding ring from the player, AoE + knockback | Close crowd control | radius, frequency, damage, knockback | Yes |
+| **Lance** | Periodic piercing beam along facing | High single-target line | width, damage, duration, tracking | Held |
+| **Drone** | Following mini-turret that auto-fires | Sustained extra DPS | +drones, fire rate, follow range | Held |
 
-| Weapon | Behaviour | Why it plays differently |
+Passives are **global** — they apply to every held weapon at once. That is what
+keeps them meaningful as the roster grows and what makes evolution recipes
+legible: a passive is a build direction, not a per-weapon tax.
+
+### Passives
+
+Existing: Overclock (+fire rate), Hollow Point (+damage), Kinetics (+move speed),
+Magnetism (+pickup radius, capped), Vitality (+max HP), Split Shot (+projectile),
+Piercing (+pierce), Velocity (+projectile speed).
+
+Added in 6b:
+
+| Passive | Effect | Note |
 |---|---|---|
-| **Pulse** | Straight shot at the nearest enemy | The baseline. Rewards facing the crowd. |
-| **Halo** | Blades orbiting the player | Zero aim, pure positioning — you *drive* the damage. |
-| **Arc** | Shot that curves toward its target | Punishes fleeing enemies the Pulse would miss. |
-| **Return** | Boomerang, out and back | Two damage windows per throw; rewards standing in the lane. |
-| **Nova** | Radial burst centred on the player | Crowd-clearing under pressure, useless at range. |
-| **Mines** | Proximity charges dropped behind you | Turns retreating into an attack. |
+| **Cooldown Core** | −weapon cooldown | Must be differentiated from Overclock — see section 14 |
+| **Amplifier** | +area / projectile size | New dial; nothing else scales size |
+| **Guard** | −dash cooldown, +i-frame duration | Pairs with 6a's dash |
+| **Greed** | **+XP gain only** | The roster's "+drop luck" is deliberately dropped — section 14 |
 
-Every weapon has: base stats, a per-level delta table, a max level, and an
-evolution recipe. All of it is data (section 15) — a seventh weapon should be a
-new row, not new branches.
-
-### Passives are global
-
-The eight passives (fire rate, damage, projectile count, pierce, move speed,
-pickup radius, max HP, projectile speed) apply to **every** weapon at once. That
-keeps them meaningful as the roster grows, and it is what makes evolution
-recipes legible: a passive is a build direction, not a per-weapon tax.
+**Velocity Coil** from the roster is the existing **Velocity** passive renamed;
+it is not a new entry.
 
 ### Weapon slots are set by the daily seed
 
-**Today's run allows 3, 4 or 5 weapons.** The number is drawn from the `daily`
-stream and is the same for every player on that seed.
+**3, 4 or 5 weapons**, drawn once from the `daily` stream, identical for everyone
+on that seed, and shown **on the ranked confirmation screen** before the attempt
+is spent. It changes how you draft, so hiding it would be hiding a rule.
 
 | Slots | Weight | Feel |
 |---|---|---|
@@ -172,13 +183,10 @@ stream and is the same for every player on that seed.
 | 4 | 0.35 | The middle |
 | 5 | 0.20 | Sprawling, generalist builds |
 
-Once slots are full the card pool stops offering new weapons and offers levels
-for the ones you hold. The count is shown **on the ranked confirmation screen**,
-before the attempt is spent — it changes how you draft, so hiding it would be
-hiding a rule.
-
-Slot count is the strongest lever the seed has on how a day actually *plays*,
-which is the answer to every day otherwise sharing one skeleton.
+Once slots are full, cards offer levels for weapons you hold rather than new
+ones. With five weapons available and three slots, a low-slot day is a genuinely
+different draft — which, with the seed-selected enemy roster, is the substantive
+answer to every day otherwise sharing one pacing skeleton.
 
 ---
 
@@ -202,21 +210,25 @@ same unfair moment.
 
 ### v1.2 additions
 
-| Type | Shape | Behaviour |
-|---|---|---|
-| **Dasher** | chevron | Creeps, telegraphs, then lunges. Punishes standing still. |
-| **Shielded** | half-ring square | Blocks damage from the front; must be flanked or out-waited. |
-| **Bomber** | round with a fuse ring | Detonates on death, damaging the player *and* nearby enemies. |
-| **Weaver** | ribbon | Approaches on a sine path, so leading it wrong misses entirely. |
+The roster specifies six new enemies; **four ship in v1.2** (section 14).
 
-Nine types total. The Shielded one is the important addition: it is the first
-enemy that makes *where you stand relative to it* the whole problem, which is
-the skill the game is otherwise built around.
+| Enemy | Behaviour | Purpose | v1.2 |
+|---|---|---|---|
+| **Dasher** | Telegraphs, then bursts at the player | Punishes lazy positioning | Yes |
+| **Shielded** | Front shield; vulnerable from the side or behind | Forces repositioning | Yes |
+| **Bomber** | Rushes and detonates (telegraphed AoE) | Spacing threat | Yes |
+| **Weaver** | Erratic sine approach | Accuracy check | Yes |
+| **Orbiter** | Circles at range | Anti-lazy-aim | Held |
+| **Healer** | Heals nearby enemies | Target prioritisation | Held |
+
+Nine types total in v1.2. **Shielded** is the important one: it is the first
+enemy where *where you stand relative to it* is the entire problem, which is the
+skill the whole game is built around.
 
 ### Today's roster is seed-selected
 
 Drifters and Swarmers are always active. From the remaining seven, the `daily`
-stream picks **four** for the day. So a given seed might be tanks-and-shielded
+stream picks **four** for the day, so 6 of 9 types are live on any given seed. So a given seed might be tanks-and-shielded
 (a grind) or dashers-and-weavers (a twitchy sprint), and everyone playing that
 day gets the same one.
 
@@ -226,8 +238,8 @@ pacing skeleton is fixed, but the roster and the weapon-slot count are not.
 ### Elites
 
 Any spawn can roll **elite** (~4%, from the spawn block's 4th draw). An elite is
-the same type with a modifier applied: more HP, more damage, more score, and a
-bright outer ring so it reads instantly in a crowd.
+the same type with a modifier applied: bigger, glowing, more HP, more damage,
+more score, and a bright outer ring so it reads instantly in a crowd.
 
 **Elites always drop something.** The drop is chosen by the 5th draw of that
 enemy's spawn block, so it is fixed the moment the elite appears and merely read
@@ -272,24 +284,26 @@ hard player DPS compounds through the upgrade pool — fire rate, damage,
 projectile count and pierce all multiply together. A gentler curve makes the
 boss trivial by its third appearance.
 
-### v1.2: three archetypes, all telegraphed
+### v1.2: four archetypes, all telegraphed
 
-Which archetype fills each 3-minute slot is drawn from `hash(date,"boss",slot)`
-— indexed, so slot 3 cannot be shifted by what happened at slot 1. Every player
-on the seed meets the same bosses in the same order.
+The roster specifies six; **four ship in v1.2** (section 14). Which one fills
+each 3-minute slot comes from `hash(date,"boss",slot)` — indexed, so slot 3
+cannot be shifted by what happened at slot 1.
 
-| Archetype | Shape | Signature |
-|---|---|---|
-| **Warden** | octagon | Slow chase, expanding radial bursts. The current boss. |
-| **Lancer** | arrowhead | Dashes across the arena *while firing*, so the safe lane keeps moving. |
-| **Spiral** | rotating star | Stationary; sweeps rotating streams that force constant circling. |
+| Boss | Core pattern | Escalation | v1.2 |
+|---|---|---|---|
+| **Spinner** | Rotating radial spray | Faster spin, more arms; dash-while-spraying variant | Yes |
+| **Aimed Volley** | Telegraphed shotgun bursts at the player | Tighter spread, higher velocity | Yes |
+| **Charger** | Dashes across the arena in telegraphed lanes, shedding bullets | More lanes, quicker recovery | Yes |
+| **Ring Master** | Expanding rings with gaps to weave | Gaps shrink as the run deepens | Yes |
+| **Summoner** | Shielded; spawns minion waves | More adds, shorter shield windows | Held |
+| **Turret Fortress** | Dense stationary fire with rotating safe lanes | Lanes narrow and rotate faster | Held |
 
-**Every attack telegraphs.** A windup animation — a charging ring, a widening
-cone, a colour shift — precedes every volley by at least
-`BOSS_TELEGRAPH_MIN` (0.45 s), and that floor holds no matter how far the run
-escalates. Dense bullet patterns are only fair if they are *readable*; without a
-tell, a hard pattern and a cheap one feel identical to the player, and the
-player is right to be annoyed.
+**Every attack telegraphs.** A windup — charging ring, widening cone, colour
+shift — precedes every volley by at least `BOSS_TELEGRAPH_MIN` (0.45 s), and that
+floor holds however deep the run goes. Dense patterns are only fair if they are
+*readable*; without a tell, a hard pattern and a cheap one feel identical to the
+player, and the player is right to be annoyed.
 
 ### Escalation
 
@@ -319,36 +333,53 @@ ones:
 
 ## 5c. Drops and pickups (v1.2)
 
-Ground drops exist to **pull the player somewhere they would rather not go**.
-A bomb sitting in the middle of a crowd is a decision; a bomb that walks to you
-is a reward for nothing.
+Drops exist to **pull the player somewhere they would rather not go**. A bomb
+sitting in the middle of a crowd is a decision; a bomb that walks to you is a
+reward for nothing.
 
-### Instant
+### Instant pickups
 
-| Drop | Effect |
-|---|---|
-| **Bomb** | Kills every enemy on screen. Scores normally, so it is worth saving for density. |
-| **Health** | Restores 35 HP. |
-| **Magnet** | Sweeps *all* field XP to the player, gems flying in over ~0.8 s. |
+| Pickup | Effect | v1.2 |
+|---|---|---|
+| **Bomb** | Heavy damage to every enemy within a fixed world radius. Bosses take a capped chunk, never an instakill. | Yes |
+| **Magnet** | Sweeps *all* field XP to the player, gems flying in over ~0.8 s | Yes |
+| **Health** | Restores a chunk of HP | Yes |
+| **Invulnerability** | A few seconds of invulnerability with a clear visual | Yes |
+| **Freeze** | Briefly freezes/slows all enemies | Held |
 
-### Timed buffs (25 s, shown as an icon with a countdown beside the EXP bar)
+> **Bomb radius is world-space, never the viewport.** "On screen" depends on
+> window size, resolution and fullscreen state — so a bomb that hit "everything
+> visible" would hit a different set of enemies for a player on a 4K monitor than
+> on a laptop, on the same seed. That is a silent fairness break, and it is
+> exactly the class of bug the determinism rule exists to catch.
 
-| Drop | Effect |
-|---|---|
-| **Invulnerable** | No damage taken. |
-| **Shotgun** | Replaces weapon fire with a wide, short-range cone. |
-| **Machine gun** | Very high rate, low damage per shot. |
-| **Splash gun** | Killed enemies explode for **50% of their max HP** to nearby enemies. |
+### Temporary weapons (25 s, icon + countdown beside the EXP bar)
 
-Splash is the one with teeth: chained detonations are **depth-capped** and
-entirely RNG-free, or one kill could cascade differently between two machines
-and break the seed.
+| Drop | Effect | v1.2 |
+|---|---|---|
+| **Shotgun** | Wide short-range burst | Yes |
+| **Machine Gun** | Very high rate, low damage per shot | Yes |
+| **Splash Gun** | Killed enemies explode for 50% of max HP to nearby foes (chains) | Yes |
+| **Chain Lightning** | Bolt arcs between nearby enemies | Held |
+| **Flamethrower** | Short cone with burn damage-over-time | Held |
+
+### Chain effects must be ordered, capped and RNG-free
+
+Splash Gun and Bomber both cascade. Two hard rules:
+
+- **Depth-capped** (3), or one kill can cascade to the whole field and the frame
+  budget with it.
+- **Deterministically ordered.** Target selection iterates the enemy container in
+  **child order — that is, spawn order** — and breaks distance ties by spawn
+  ordinal. Never by `instance_id` and never by dictionary iteration order:
+  neither is stable across runs, so a chain would branch differently on two
+  machines from identical state.
 
 ### Where drops come from
 
 Three sources, all determinism-safe:
 
-1. **Scheduled ground drops** — the `drops` stream precomputes the whole run's
+1. **Scheduled ground drops** — the `drops` stream precomputes the entire run's
    schedule at start: what, at what absolute time, at what absolute world
    position. Never rolled during play, never placed relative to the player.
 2. **Boss drops** — decided when the boss slot is assigned, read back on death.
@@ -415,22 +446,22 @@ choice to make.
 ### Evolution
 
 A **base weapon at max level** plus a **specific passive at max stacks** unlocks
-an evolution card. Taking it replaces the base weapon in place — it does not
-cost a slot.
+an evolution card. Taking it replaces the base weapon in place and does not cost
+a slot. Four of the roster's seven recipes ship in v1.2 — the other three depend
+on weapons held back.
 
-| Weapon | + Passive | → Evolution |
-|---|---|---|
-| Pulse | Overclock | **Lance** — piercing beam that punches through a line |
-| Halo | Kinetics | **Aegis** | 
-| Arc | Velocity | **Tempest** |
-| Return | Piercing | **Cyclone** |
-| Nova | Hollow Point | **Collapse** |
-| Mines | Magnetism | **Cluster** |
+| Base + Passive | Evolves into | Effect | v1.2 |
+|---|---|---|---|
+| Pulse + Piercing | **Railgun** | Full-screen piercing lance through everything in line | Yes |
+| Orbit + Amplifier | **Event Horizon** | Huge orbiting ring that drags enemies inward | Yes |
+| Boomerang + Split Shot | **Blade Storm** | A returning fan of blades | Yes |
+| Nova + Cooldown Core | **Supernova** | Near-constant expanding shockwaves | Yes |
+| Curveball + Hollow Point | **Seekers** | Homing high-damage curved missiles | Held |
+| Lance + Velocity Coil | **Prism Sweep** | Rotating beam sweeping the field | Held |
+| Drone + Overclock | **Gun Battery** | Several rapid-fire turrets | Held |
 
-Recipes are data (section 15). The design intent is that evolutions make the
-**slot limit** interesting: with three slots you will reach two evolutions, with
-five you will probably reach none, so the daily slot count decides whether the
-day rewards focus or breadth.
+The slot count decides whether a day rewards focus or breadth: with three slots
+you should reach two evolutions, with five probably none.
 
 ### Combo multiplier
 
@@ -688,112 +719,214 @@ honestly at that checkpoint before building more on top.
 
 ## 14. v1.2 rollout plan
 
-Six sub-phases, each committed, pushed, and determinism-checked on its own. The
-ordering is deliberate: **the slot system lands before evolutions** (evolutions
-are meaningless without a slot pressure to play against), and **drops land before
-elites** (elites guarantee a drop, so the drop system has to exist first).
+Planned against `docs/content-roster.md`. Six sub-phases, each committed, pushed
+and determinism-checked on its own.
 
-| Phase | Scope | Determinism work | New digest fields |
-|---|---|---|---|
-| **6a** | EXP/HEALTH bar labels and colours; dash with i-frames, tell and cooldown | None — dash is input, not randomness | dash cooldown state |
-| **6b** | Six base weapons, slot system, reroll/banish | New `daily` stream (slot count); new `reroll` stream indexed by action | slot count, owned weapons |
-| **6c** | Evolution recipes, combo multiplier | None new — both are deterministic given play | combo chain, evolutions held |
-| **6d** | Drops, buffs, temp weapons | New `drops` stream; schedule **precomputed at run start** | drop-schedule hash, drops taken |
-| **6e** | Four new enemies, daily roster selection, elites | Roster from `daily`; spawn block grows 3 draws → **5** (adds elite + elite-drop) | active roster, elite count |
-| **6f** | Three boss archetypes, telegraphed escalating patterns | Indexed `boss` stream per slot | boss assignment list |
+Ordering is forced by two dependencies: **slots before evolutions** (an evolution
+is meaningless without slot pressure to play against), and **drops before elites**
+(elites guarantee a drop, so the drop system must already exist).
+
+### Roster item → sub-phase
+
+| Sub-phase | Roster items | New RNG work |
+|---|---|---|
+| **6a** | Dash (i-frames, tell, cooldown); EXP bar labelled + gem-gold; HEALTH bar labelled + green | None — dash is input, not randomness |
+| **6b** | Weapons: Pulse, Orbit, Curveball, Boomerang, Nova · Passives: Cooldown Core, Amplifier, Guard, Greed · slot system · reroll + banish | `daily` stream (slot count); `reroll` stream indexed by `(level, action)` |
+| **6c** | Evolutions: Railgun, Event Horizon, Blade Storm, Supernova · combo multiplier | None — both deterministic given play |
+| **6d** | Pickups: Bomb, Magnet, Health, Invulnerability · Temp weapons: Shotgun, Machine Gun, Splash Gun | `drops` stream, **schedule precomputed at run start** |
+| **6e** | Enemies: Dasher, Shielded, Bomber, Weaver · seed-selected daily roster · elites | Roster from `daily`; spawn block grows 3 draws → **5** (elite + elite-drop) |
+| **6f** | Bosses: Spinner, Aimed Volley, Charger, Ring Master · telegraphs · escalation | Indexed `boss` stream per slot |
 
 ### Definition of done, per sub-phase
 
 1. `tools/determinism_check.sh` green, **including its negative control**.
-2. The digest extended with that phase's new state — otherwise the check would
-   pass while the new system diverges freely, which is worse than no check.
+2. The digest extended with that phase's new state. Without this the check passes
+   while the new system diverges freely — worse than no check, because it reads
+   as coverage.
 3. All four test suites green.
-4. Every new number lives in `balance.gd`. No literal in gameplay logic.
+4. Every new number in `balance.gd`. No literal in gameplay logic.
 5. A real run played, not just headless verification.
 
-### Risks I want on the record
+---
 
-- **Performance is the real one.** Six weapons plus evolutions plus 300 enemies
-  plus drops plus boss bullet patterns is a large multiple of what currently
-  runs. Target: 60 fps at 300 enemies and 200 live projectiles. Projectile
-  pooling is likely needed at 6b and near-certain by 6f. If it comes to a
-  choice, the enemy cap gets lowered before the frame budget slips.
-- **Card-pool legibility.** Weapons, levels, passives and evolutions in three
-  slots is a lot of information at a moment when the player is under pressure.
-  Cards will need type colour-coding and an owned/level indicator.
-- **Telegraph readability in a crowded screen.** A boss windup competing with
-  fifty enemies and particle bursts may simply not be visible. May need the
-  screen to desaturate briefly, or the boss to be drawn above everything.
-- **Chain reactions.** Splash gun and Bomber both cascade. Depth caps are
-  mandatory, and they are a determinism requirement, not a performance nicety.
-- **Seed meaning changes.** Adding streams and draws changes what every past date
-  produces. Fine pre-launch, and the archive is regenerated from the date
-  anyway, but it means no comparing scores across the v1.2 boundary.
+## 14b. What I would cut, and why
+
+You offered a trim line. I land on **exactly your suggested minimum**, and here
+is the reasoning per cut — each is held for post-launch, not deleted.
+
+**Weapons — cut Lance and Drone (ship 5 of 7).** Both introduce a *new system*
+rather than a new behaviour. Lance is a continuous beam, so it needs a swept-line
+damage path that no projectile weapon uses. Drone is an autonomous ally with its
+own targeting, movement and firing — effectively a second player — and its
+evolution (Gun Battery) multiplies that entity. The other five are all
+projectile-or-area variants sharing one pipeline. This cut removes the two
+weapons that would each cost more than the remaining five combined.
+
+**Evolutions — 4 of 7.** Seekers, Prism Sweep and Gun Battery all depend on cut
+weapons, so this follows automatically.
+
+**Temp weapons — cut Chain Lightning and Flamethrower (ship 3).** Chain Lightning
+is a *third* chain system alongside Splash and Bomber, and chains are the highest
+determinism risk in the whole roster. Flamethrower needs a damage-over-time
+system plus cone collision, neither of which exists. Shotgun, Machine Gun and
+Splash cover the "temporarily play differently" fantasy on their own.
+
+**Pickups — cut Freeze (ship 4).** Slowing all enemies is tempting but the
+obvious implementation reaches for `Engine.time_scale`, which would corrupt the
+fixed-timestep contract the entire daily seed rests on. Doing it correctly means
+a per-enemy speed multiplier threaded through every movement path. Worth doing —
+not worth doing first.
+
+**Enemies — cut Healer and Orbiter (ship 4 new).** Healer requires enemies to
+find and mutate *each other* every frame: at a 300-enemy cap that is an O(n²)
+scan and the first thing that will blow the frame budget. Orbiter is
+behaviourally close to Shooter, which already holds range — the least new
+information per unit of work in the list.
+
+**Bosses — cut Summoner and Turret Fortress (ship 4).** Summoner is the one I
+feel strongest about: **a boss that spawns enemies collides with the 300-enemy
+cap, and cap pressure is player-dependent.** If a summon is ever suppressed
+because a good player left the field crowded, two runs diverge. It is solvable
+(reserved cap headroom, positions pre-drawn per `(slot, summon_index)`) but it is
+a determinism special case, and special cases are where this class of bug lives.
+Turret Fortress overlaps Spinner and Ring Master in what it asks of the player.
+
+**Net v1.2:** 5 weapons · 12 passives · 4 evolutions · 4 pickups · 3 temp weapons
+· 9 enemies + elites · 4 bosses. Still roughly triple the current content.
+
+---
+
+## 14c. Determinism risk register
+
+Every roster item that could break the seed, and how it is scheduled.
+
+| # | Risk | Resolution |
+|---|---|---|
+| 1 | **Greed's "+drop luck"** — a passive altering drop rates makes drops depend on the player's build, but the drop schedule is precomputed at run start | **Greed affects XP only.** Anything else means the schedule cannot be precomputed, which forfeits the strongest guarantee in the design. If drop generosity should vary, it varies *by seed*, not by build. |
+| 2 | **Chain targeting** (Splash, Bomber, Chain Lightning) picking "nearest, ties broken somehow" | Iterate the enemy container in **child order (spawn order)**; break ties by spawn ordinal. Never `instance_id`, never dictionary order — neither is stable across runs. Depth-capped at 3. |
+| 3 | **Bomb hitting "on-screen" enemies** | Fixed **world-space radius**. Viewport size varies with resolution and fullscreen, so a viewport-based bomb hits different enemies for different players on the same seed. |
+| 4 | **Elite roll and elite drop** resolving at death, which is player-timed | Both drawn in the **5-draw spawn block** when the enemy spawns; merely read back on death. |
+| 5 | **Boss drops** resolving at death | Drawn when the **slot is assigned**, from `hash(date,"boss",slot)`. |
+| 6 | **Summoner adds vs the enemy cap** *(deferred, but recorded)* | If ever built: reserve cap headroom for summons and pre-draw positions per `(slot, summon_index)`. Never let cap pressure suppress a summon. |
+| 7 | **Freeze via `Engine.time_scale`** *(deferred)* | Never. Per-enemy speed multiplier threaded through movement, so the physics step is untouched. |
+| 8 | **Reroll / banish** | `hash(date, level, action_index)` — indexed per action, so whether, how often and how slowly the player acts shifts nothing. |
+| 9 | **Weapon slot count and daily enemy roster** | `daily` stream, drawn **once at run start** before anything else consumes randomness. |
+| 10 | **Dasher / Bomber telegraph timing** | Fixed constants and per-enemy timers seeded from spawn ordinal — never a live draw. |
+| 11 | **Shielded directional damage** | Pure geometry against the enemy's own facing. No RNG, but it touches every damage source, so every weapon must route through one damage entry point. |
+
+---
+
+## 14d. Things heavier than they look
+
+Not determinism issues — schedule and performance ones.
+
+- **Performance is the real risk.** 5 weapons + evolutions + 9 enemy types + 300
+  enemies + drops + boss bullet patterns is a large multiple of what runs today.
+  Target: 60 fps at 300 enemies and 200 live projectiles. Projectile pooling is
+  likely needed at 6b and near-certain by 6f. If forced to choose, the enemy cap
+  drops before the frame budget slips.
+- **Shielded changes the damage pipeline.** Directional damage means every source
+  — projectile, orbit contact, Nova ring, splash chain, bomb — has to ask the
+  same question about hit angle. That is a refactor to a single damage entry
+  point, and it is cheaper to do at the start of 6e than to retrofit.
+- **Cooldown Core vs Overclock are near-duplicates.** "−cooldown" and "+fire
+  rate" are the same number from two directions. Proposal: **Overclock** stays
+  per-shot rate, **Cooldown Core** reduces the *between-volley* cooldown that
+  Orbit, Nova and Boomerang use — so it is the multi-weapon passive and Overclock
+  is the single-target one. Otherwise one of them should be cut.
+- **Card-pool legibility.** Weapons, weapon levels, passives and evolutions
+  competing for three card slots, at a moment the player is under pressure.
+  Needs type colour-coding and an owned/level indicator on every card.
+- **Telegraph visibility.** A boss windup competing with fifty enemies and
+  particle bursts may simply not be seen. May need a brief desaturation of
+  everything else, or drawing the boss above all other entities.
+- **Seed meaning changes** across the v1.2 boundary — more streams, more draws
+  per spawn. Fine pre-launch, but no comparing scores across it.
 
 ---
 
 ## 15. Data shapes (v1.2)
 
-Everything below lives in `balance.gd`. The point of writing the shapes down is
-that **content becomes rows, not branches**: a seventh weapon or a tenth enemy
-should not touch gameplay logic at all.
+All of this lives in `balance.gd`. The point of writing the shapes down is that
+**content becomes rows, not branches** — a sixth weapon or a tenth enemy should
+not touch gameplay logic.
 
 ```gdscript
 WEAPONS = {
   "pulse": {
     name, desc,
-    behavior: "straight",      # straight | orbit | curve | boomerang | nova | mine
+    behavior: "seek",          # seek | orbit | curve | boomerang | nova
     max_level: 5,
     base:      {damage, cooldown, speed, count, pierce, lifetime, radius, spread},
-    per_level: {damage: +4.0, cooldown: x0.9, count: +0},   # applied per level
-    evolves_with: "overclock", evolves_to: "lance",
+    per_level: {damage: +4.0, cooldown: x0.90, count: +0},
+    evolves_with: "pierce", evolves_to: "railgun",
   },
+  "orbit": { behavior: "orbit",
+             base: {damage, orbs, radius, spin_speed, tick_cooldown} },
+  "nova":  { behavior: "nova",
+             base: {damage, radius, frequency, knockback} },
 }
 
-PASSIVES = {                    # global multipliers, apply to every weapon
-  "overclock": {name, desc, stat: "fire_rate", op: "mul", value: 1.25, max: 5},
+PASSIVES = {                    # global; apply to every held weapon
+  "overclock":     {stat: "fire_rate",       op: "mul", value: 1.25, max: 5},
+  "cooldown_core": {stat: "volley_cooldown", op: "mul", value: 0.90, max: 5},
+  "amplifier":     {stat: "area_scale",      op: "mul", value: 1.15, max: 4},
+  "guard":         {stat: "dash_cooldown",   op: "mul", value: 0.85, max: 3},
+  "greed":         {stat: "xp_gain",         op: "mul", value: 1.15, max: 4},
 }
 
 EVOLUTIONS = [                  # weapon at max level + passive at max stacks
-  {weapon: "pulse", passive: "overclock", result: "lance"},
+  {weapon: "pulse",     passive: "pierce",    result: "railgun"},
+  {weapon: "orbit",     passive: "amplifier", result: "event_horizon"},
+  {weapon: "boomerang", passive: "split",     result: "blade_storm"},
+  {weapon: "nova",      passive: "cooldown_core", result: "supernova"},
 ]
 
-WEAPON_SLOTS = {                # drawn once from the `daily` stream
-  weights: [[3, 0.45], [4, 0.35], [5, 0.20]],
-}
+WEAPON_SLOTS = {weights: [[3, 0.45], [4, 0.35], [5, 0.20]]}   # `daily` stream
 
 DROPS = {
-  "bomb":     {kind: "instant", effect: "clear_screen", color, shape, weight: 0.18},
-  "splash":   {kind: "temp_weapon", duration: 25.0, hp_fraction: 0.50,
-               chain_depth_max: 3, radius: 140.0, weight: 0.10},
+  "bomb":   {kind: "instant", effect: "blast", world_radius: 900.0,
+             damage: 9999.0, boss_damage_cap: 0.25, weight: 0.16},
+  "magnet": {kind: "instant", effect: "sweep_xp", fly_in: 0.8, weight: 0.20},
+  "health": {kind: "instant", effect: "heal", amount: 35.0, weight: 0.24},
+  "invuln": {kind: "buff", duration: 6.0, weight: 0.12},
+  "shotgun":     {kind: "temp_weapon", duration: 25.0, weight: 0.10},
+  "machine_gun": {kind: "temp_weapon", duration: 25.0, weight: 0.10},
+  "splash":      {kind: "temp_weapon", duration: 25.0, weight: 0.08,
+                  hp_fraction: 0.50, radius: 140.0, chain_depth_max: 3},
 }
 DROP_SCHEDULE = {first: 45.0, interval: 38.0, jitter: 12.0, placement: "world_ring"}
 
 ENEMY_TYPES = {                 # existing shape, plus:
+  "dasher":   {..., telegraph: 0.5, dash_speed: 620.0, dash_cooldown: 3.0},
   "shielded": {..., shield_arc_deg: 140.0, shield_mult: 0.15},
-  "dasher":   {..., dash_telegraph: 0.5, dash_speed: 620.0, dash_cooldown: 3.0},
+  "bomber":   {..., fuse: 0.7, blast_radius: 120.0, blast_damage: 28.0,
+               chain_depth_max: 3},
+  "weaver":   {..., wave_amplitude: 90.0, wave_frequency: 1.6},
 }
-ENEMY_ROSTER = {core: ["drifter","swarmer"], pick: 4, pool: [...]}
+ENEMY_ROSTER = {core: ["drifter", "swarmer"], pick: 4,
+                pool: ["tank","shooter","splitter","dasher","shielded","bomber","weaver"]}
 
 ELITE = {chance: 0.04, hp_mult: 6.0, damage_mult: 1.5, score_mult: 5.0,
-         ring_color, guaranteed_drop: true}
+         scale: 1.4, ring_color, guaranteed_drop: true}
 
 BOSS_ARCHETYPES = {
-  "warden": {shape: "octagon", patterns: ["radial_burst"], speed_mult: 1.0},
-  "lancer": {shape: "arrowhead", patterns: ["dash_strafe"], speed_mult: 1.35},
-  "spiral": {shape: "star", patterns: ["rotating_stream"], speed_mult: 0.0},
+  "spinner":      {patterns: ["rotating_spray"], speed_mult: 1.00},
+  "aimed_volley": {patterns: ["shotgun_burst"],  speed_mult: 1.10},
+  "charger":      {patterns: ["lane_dash"],      speed_mult: 1.35},
+  "ring_master":  {patterns: ["gapped_ring"],    speed_mult: 0.60},
 }
 BOSS_PATTERNS = {
-  "radial_burst": {telegraph: 0.6, bullets: 8, spread_deg: 360, speed: 210,
-                   cadence: 3.4, per_index: {bullets: +1.5, speed: x1.08}},
+  "rotating_spray": {telegraph: 0.60, bullets: 8, spread_deg: 360, speed: 210,
+                     cadence: 3.4, per_index: {bullets: +1.5, speed: x1.08}},
+  "gapped_ring":    {telegraph: 0.75, bullets: 28, gaps: 3, gap_deg: 34,
+                     speed: 170, per_index: {gap_deg: -3.0, speed: x1.06}},
 }
-BOSS_TELEGRAPH_MIN = 0.45       # floor; escalation never goes below this
+BOSS_TELEGRAPH_MIN = 0.45       # escalation never goes below this
 
-COMBO = {window: 2.5, per_kill: 0.02, max_bonus: 1.5, decay_per_sec: 6.7}
-DASH  = {distance: 190.0, duration: 0.16, iframes: 0.32, cooldown: 3.0,
-         alpha: 0.45, afterimages: 3}
+COMBO   = {window: 2.5, per_kill: 0.02, max_bonus: 1.5, decay_per_sec: 6.7}
+DASH    = {distance: 190.0, duration: 0.16, iframes: 0.32, cooldown: 3.0,
+           alpha: 0.45, afterimages: 3}
 REROLLS = 3
 BANISHES = 2
 ```
-
----
