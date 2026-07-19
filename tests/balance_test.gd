@@ -57,9 +57,16 @@ func _ready() -> void:
 			valid = valid and e.has(key)
 		_check("enemy '%s' well-formed" % id, valid)
 
-	for key in ["shoot", "hit", "enemy_death", "xp_pickup", "level_up",
-			"player_hurt", "run_over", "boss_spawn", "boss_death"]:
-		_check("SFX_DB has mix level for '%s'" % key, Balance.SFX_DB.has(key))
+	# Cross-check BOTH directions. The earlier version only asserted that a
+	# hardcoded list of names had mix levels in SFX_DB — which passed happily
+	# while boss_spawn and boss_death had no audio file at all, so the boss
+	# arrived in silence and only a runtime warning ever said so. A test that
+	# validates one half of a pair against the other half's absence is worse
+	# than no test, because it reads as coverage.
+	for key in Balance.SFX_DB:
+		_check("SFX_DB '%s' has a loaded sound file" % key, Sfx.has_sound(key))
+	for key in Sfx.sound_names():
+		_check("loaded sound '%s' has a mix level" % key, Balance.SFX_DB.has(key))
 
 	print("\n=== ramp stays unbounded and monotonic ===")
 	var previous_hp := 0.0

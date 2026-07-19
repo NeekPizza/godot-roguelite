@@ -112,6 +112,27 @@ def main():
 
     write_wav("player_hurt", render(0.25, player_hurt, 0.34))
 
+    # boss_spawn: ominous rising swell. Deliberately the longest, lowest cue in
+    # the set — the boss is the run's biggest moment and its arrival should be
+    # audible under a screen already full of combat noise.
+    def boss_spawn(t, p):
+        freq = 55.0 + 90.0 * p
+        rumble = square(t * freq) * 0.6
+        swell = math.sin(TAU * t * (freq * 2.02)) * 0.4
+        grit = noise(rng) * 0.25 * p
+        return (rumble + swell + grit) * min(1.0, p * 3.0) * (1.0 - p * 0.15)
+
+    write_wav("boss_spawn", render(0.85, boss_spawn, 0.34))
+
+    # boss_death: heavy collapse — noise blast over a long descending sweep.
+    def boss_death(t, p):
+        freq = 240.0 * (1.0 - 0.78 * p)
+        body = saw(t * freq) * 0.5 + math.sin(TAU * t * freq * 0.5) * 0.5
+        blast = noise(rng) * math.exp(-t * 6.0) * 0.8
+        return (body * 0.55 + blast) * envelope(p, 0.004, 0.35)
+
+    write_wav("boss_death", render(1.15, boss_death, 0.36))
+
     # run_over: long descending tone
     def run_over(t, p):
         freq = 440.0 * (1.0 - 0.62 * p)

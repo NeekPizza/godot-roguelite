@@ -20,6 +20,8 @@ const SOUNDS := {
 	"level_up": preload("res://assets/sfx/level_up.wav"),
 	"player_hurt": preload("res://assets/sfx/player_hurt.wav"),
 	"run_over": preload("res://assets/sfx/run_over.wav"),
+	"boss_spawn": preload("res://assets/sfx/boss_spawn.wav"),
+	"boss_death": preload("res://assets/sfx/boss_death.wav"),
 }
 
 ## Applied on top of each sound's mix level, driven by the settings slider.
@@ -66,6 +68,15 @@ func _process(delta: float) -> void:
 
 ## volume_db defaults to the per-sound mix level in balance.gd, so call sites
 ## just say what happened and the mix stays tunable in one place.
+## Exposed so tests can cross-check the loaded set against Balance.SFX_DB.
+func sound_names() -> Array:
+	return SOUNDS.keys()
+
+
+func has_sound(sound_name: String) -> bool:
+	return SOUNDS.has(sound_name)
+
+
 func play(sound_name: String, volume_db: float = NAN) -> void:
 	if is_nan(volume_db):
 		volume_db = Balance.SFX_DB.get(sound_name, 0.0)
