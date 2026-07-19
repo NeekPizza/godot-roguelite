@@ -21,6 +21,7 @@ enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 @onready var _enemy_shots: Node2D = $EnemyShots
 @onready var _gems: Node2D = $Gems
 @onready var _fx: Node2D = $Fx
+var _weapons: Node2D
 
 @onready var _timer_label: Label = $HUD/Root/TimerLabel
 @onready var _score_label: Label = $HUD/Root/ScoreLabel
@@ -29,9 +30,13 @@ enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 @onready var _xp_bar: ProgressBar = $HUD/Root/XPBar
 @onready var _exp_label: Label = $HUD/Root/ExpLabel
 @onready var _health_label: Label = $HUD/Root/HealthLabel
+@onready var _weapons_label: Label = $HUD/Root/WeaponsLabel
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
+@onready var _levelup_hint: Label = $LevelUpLayer/Root/Center/Panel/Hint
+@onready var _reroll_button: Button = $LevelUpLayer/Root/Center/Panel/Controls/Reroll
+@onready var _banish_button: Button = $LevelUpLayer/Root/Center/Panel/Controls/Banish
 @onready var _pause_layer: CanvasLayer = $PauseLayer
 @onready var _pause_info: Label = $PauseLayer/Root/Center/Panel/Info
 @onready var _pause_resume: Button = $PauseLayer/Root/Center/Panel/Resume
@@ -52,7 +57,14 @@ var _level := 1
 var _xp := 0
 var _xp_into_level := 0
 var _pending_levels := 0
-var _stacks := {}
+var _stacks := {}                # passive id -> stacks
+var _banished: Array = []        # ids removed from the deck for the rest of the run
+var _card_action := 0            # reroll/banish counter WITHIN the current level
+var _rerolls_left := Balance.REROLLS_PER_RUN
+var _banishes_left := Balance.BANISHES_PER_RUN
+var _banish_armed := false
+var _current_cards: Array = []
+var _weapon_slots := 3
 
 var _kills := 0
 var _kill_score := 0
@@ -120,6 +132,17 @@ func _ready() -> void:
 	print("[run] %s seed date=%s seed=%d" % [
 		RunConfig.mode_name(), _date_string, GameSeed.for_date(_date_string)])
 
+	# Today's weapon-slot count, from the `daily` stream: the same for everyone
+	# on this seed, and shown on the ranked confirmation before the attempt is
+	# spent because it changes how you draft.
+	_weapon_slots = Daily.weapon_slots(_date_string)
+	print("[run] weapon slots today: %d" % _weapon_slots)
+
+	_weapons = _player.get_node("WeaponSystem")
+	_weapons.player = _player
+	_weapons.projectile_parent = _projectiles
+	_weapons.add_or_level(Balance.STARTING_WEAPON)
+
 	_player.godmode = _godmode
 	_player.projectile_parent = _projectiles
 	_player.died.connect(_on_player_died)
@@ -127,6 +150,9 @@ func _ready() -> void:
 	_player.xp_collected.connect(_on_xp_collected)
 
 	Music.start()
+
+	_reroll_button.pressed.connect(_on_reroll_pressed)
+	_banish_button.pressed.connect(_on_banish_pressed)
 
 	_pause_resume.pressed.connect(_close_pause)
 	_pause_restart.pressed.connect(_restart)
@@ -338,15 +364,9 @@ func _on_xp_collected(amount: int) -> void:
 func _open_level_up() -> void:
 	_state = State.LEVEL_UP
 	get_tree().paused = true
-
-	var choices := Upgrades.draw_choices(_date_string, _level, _stacks)
-	for i in _levelup_buttons.get_child_count():
-		var button: Button = _levelup_buttons.get_child(i)
-		var choice: Dictionary = choices[i]
-		button.text = "%s\n\n%s" % [choice["name"], choice["desc"]]
-		for connection in button.pressed.get_connections():
-			button.pressed.disconnect(connection["callable"])
-		button.pressed.connect(_on_upgrade_chosen.bind(choice["id"]))
+	_card_action = 0
+	_banish_armed = false
+	_deal_cards()
 
 	print("[run] level up -> %d  (xp %d, kills %d)" % [_level, _xp_collected, _kills])
 	_update_hud()  # Otherwise the HUD still shows the pre-level-up level.
@@ -355,25 +375,103 @@ func _open_level_up() -> void:
 	_levelup_buttons.get_child(0).grab_focus()
 
 	if _auto_pick:
-		_on_upgrade_chosen.call_deferred(choices[0]["id"])
+		_on_card_chosen.call_deferred(0)
 
 
-func _on_upgrade_chosen(upgrade_id: String) -> void:
-	Upgrades.apply(upgrade_id, _player)
-	if upgrade_id != Upgrades.HEAL_ID:
-		_stacks[upgrade_id] = _stacks.get(upgrade_id, 0) + 1
+## Draw and render the current offer. `_card_action` indexes the draw, so the
+## initial offer and every reroll are each reproducible in isolation.
+func _deal_cards() -> void:
+	_current_cards = Cards.draw(_date_string, _level, _card_action, {
+		"weapons": _weapons.owned,
+		"passives": _stacks,
+		"banished": _banished,
+		"slots": _weapon_slots,
+	})
+
+	for i in _levelup_buttons.get_child_count():
+		var button: Button = _levelup_buttons.get_child(i)
+		var card: Dictionary = _current_cards[i]
+		button.text = "%s\n%s\n\n%s" % [_card_tag(card), card["name"], card["desc"]]
+		for connection in button.pressed.get_connections():
+			button.pressed.disconnect(connection["callable"])
+		button.pressed.connect(_on_card_chosen.bind(i))
+
+	_refresh_card_controls()
+
+
+## Cards compete for attention under pressure, so each says what KIND it is.
+func _card_tag(card: Dictionary) -> String:
+	match card["kind"]:
+		Cards.KIND_WEAPON_NEW:   return "NEW WEAPON"
+		Cards.KIND_WEAPON_LEVEL: return "WEAPON  Lv%d" % int(card["level"])
+		Cards.KIND_PASSIVE:      return "PASSIVE  Lv%d" % int(card["level"])
+		_:                       return "RECOVER"
+
+
+func _refresh_card_controls() -> void:
+	_reroll_button.text = "REROLL (%d)" % _rerolls_left
+	_reroll_button.disabled = _rerolls_left <= 0
+	_banish_button.text = "BANISH (%d)" % _banishes_left
+	_banish_button.disabled = _banishes_left <= 0
+	_levelup_hint.text = "Pick a card to banish it" if _banish_armed \
+		else "Slots %d/%d   ·   %s" % [_weapons.slots_used(), _weapon_slots, _weapons.summary()]
+
+
+func _on_reroll_pressed() -> void:
+	if _rerolls_left <= 0:
+		return
+	_rerolls_left -= 1
+	_card_action += 1
+	_banish_armed = false
+	_deal_cards()
+	_levelup_buttons.get_child(0).grab_focus()
+
+
+func _on_banish_pressed() -> void:
+	if _banishes_left <= 0:
+		return
+	_banish_armed = not _banish_armed
+	_refresh_card_controls()
+
+
+func _on_card_chosen(index: int) -> void:
+	var card: Dictionary = _current_cards[index]
+
+	if _banish_armed:
+		# Banish removes the option from the deck permanently, then redraws.
+		_banish_armed = false
+		_banishes_left -= 1
+		if card["kind"] != Cards.KIND_HEAL:
+			_banished.append(card["id"])
+		_card_action += 1
+		_deal_cards()
+		_levelup_buttons.get_child(0).grab_focus()
+		return
+
+	_take_card(card)
 
 	_pending_levels -= 1
 	_hp_bar.max_value = _player.max_hp
 
 	if _pending_levels > 0:
-		_open_level_up()  # Stacked level-ups: present the next card set.
+		_open_level_up()  # Stacked level-ups: present the next offer.
 		return
 
 	_levelup_layer.hide()
 	get_tree().paused = false
 	_state = State.RUNNING
 	_update_hud()
+
+
+func _take_card(card: Dictionary) -> void:
+	match card["kind"]:
+		Cards.KIND_WEAPON_NEW, Cards.KIND_WEAPON_LEVEL:
+			_weapons.add_or_level(card["id"])
+		Cards.KIND_PASSIVE:
+			Weapons.apply_passive(card["id"], _player)
+			_stacks[card["id"]] = int(_stacks.get(card["id"], 0)) + 1
+		_:
+			_player.heal(float(Balance.CARD_FALLBACK["heal"]))
 
 
 # --- Scoring and run end -----------------------------------------------------
@@ -523,6 +621,9 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d" % [
+		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
+		JSON.stringify(_banished), _rerolls_left, _banishes_left,
 	]
 
 
@@ -536,6 +637,8 @@ func _update_hud() -> void:
 	_timer_label.text = _format_time(_elapsed)   # counts UP; endless
 	_score_label.text = "SCORE %d" % _score()
 	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
+	_weapons_label.text = "%s     [%d/%d slots]" % [
+		_weapons.summary(), _weapons.slots_used(), _weapon_slots]
 	_hp_bar.value = _player.hp
 	_xp_bar.max_value = _xp_needed(_level)
 	_xp_bar.value = _xp_into_level

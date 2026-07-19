@@ -95,6 +95,7 @@ func _refresh() -> void:
 		lines.append("Ranked attempt: used — scored %d" % int(record.get("score", 0)))
 	else:
 		lines.append("Ranked attempt: used")
+	lines.append(Daily.summary(today))
 	var best := SaveStore.best_score_for_date(today)
 	if best > 0:
 		lines.append("Best on today's seed: %d" % best)
@@ -120,8 +121,9 @@ func _focus_first_available() -> void:
 # --- Ranked confirmation -----------------------------------------------------
 
 func _on_ranked_pressed() -> void:
-	_confirm_text.text = "Start today's ranked run?\n\nSeed %s\nYou get one ranked attempt per day.\nQuitting mid-run still uses it." \
-		% GameSeed.today_utc()
+	var today := GameSeed.today_utc()
+	_confirm_text.text = "Start today's ranked run?\n\nSeed %s\n%s\n\nYou get one ranked attempt per day.\nQuitting mid-run still uses it." % [
+		today, Daily.summary(today)]
 	_open_overlay(_confirm)
 	_confirm_no.grab_focus()   # default to the safe choice
 
@@ -147,7 +149,9 @@ func _shift_archive(days: int) -> void:
 func _refresh_archive() -> void:
 	_archive_date.text = _archive_date_string
 	var best := SaveStore.best_score_for_date(_archive_date_string)
-	_archive_best.text = "Your best: %d" % best if best > 0 else "Not played yet"
+	_archive_best.text = "%s\n%s" % [
+		Daily.summary(_archive_date_string),
+		"Your best: %d" % best if best > 0 else "Not played yet"]
 	_archive_next.disabled = GameSeed.days_before(_archive_date_string, -1) >= GameSeed.today_utc()
 
 

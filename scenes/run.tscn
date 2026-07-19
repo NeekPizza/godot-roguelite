@@ -108,6 +108,15 @@ max_value = 100.0
 value = 100.0
 show_percentage = false
 
+[node name="WeaponsLabel" type="Label" parent="HUD/Root"]
+offset_left = 16.0
+offset_top = 104.0
+offset_right = 900.0
+offset_bottom = 126.0
+theme_override_colors/font_color = Color(0.62, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "-"
+
 [node name="ExpLabel" type="Label" parent="HUD/Root"]
 offset_left = 16.0
 offset_top = 80.0
@@ -159,17 +168,17 @@ text = "LEVEL UP"
 theme_override_constants/separation = 20
 
 [node name="Card0" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(240, 150)
+custom_minimum_size = Vector2(250, 168)
 theme_override_font_sizes/font_size = 18
 text = "-"
 
 [node name="Card1" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(240, 150)
+custom_minimum_size = Vector2(250, 168)
 theme_override_font_sizes/font_size = 18
 text = "-"
 
 [node name="Card2" type="Button" parent="LevelUpLayer/Root/Center/Panel/Cards"]
-custom_minimum_size = Vector2(240, 150)
+custom_minimum_size = Vector2(250, 168)
 theme_override_font_sizes/font_size = 18
 text = "-"
 
@@ -225,6 +234,26 @@ theme_override_font_sizes/font_size = 19
 text = "QUIT TO MENU"
 
 [node name="SettingsPanel" parent="PauseLayer/Root" instance=ExtResource("5")]
+
+[node name="Hint" type="Label" parent="LevelUpLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+text = "-"
+
+[node name="Controls" type="HBoxContainer" parent="LevelUpLayer/Root/Center/Panel"]
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Reroll" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
+custom_minimum_size = Vector2(200, 40)
+theme_override_font_sizes/font_size = 17
+text = "REROLL (3)"
+
+[node name="Banish" type="Button" parent="LevelUpLayer/Root/Center/Panel/Controls"]
+custom_minimum_size = Vector2(200, 40)
+theme_override_font_sizes/font_size = 17
+text = "BANISH (2)"
 
 [node name="GameOverLayer" type="CanvasLayer" parent="."]
 process_mode = 3

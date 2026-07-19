@@ -63,7 +63,7 @@ static func for_date(date_string: String) -> int:
 	return hash_string(date_string)
 
 
-## Stream 1 of 3: enemy waves. Consumed only by the wave scheduler, in a fixed
+## Enemy waves. Consumed only by the wave scheduler, in a fixed
 ## order at fixed times.
 static func make_spawn_rng(date_string: String) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
@@ -71,15 +71,32 @@ static func make_spawn_rng(date_string: String) -> RandomNumberGenerator:
 	return rng
 
 
-## Stream 2 of 3: level-up card draws. Re-derived per level so that *when* a
-## player levels up cannot shift any other stream.
+## Legacy per-level stream, retained for the upgrade path; card draws use
+## make_card_rng so rerolls stay indexed.
 static func make_upgrade_rng(date_string: String, level_index: int) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash_string("%s#upgrade#%d" % [date_string, level_index])
 	return rng
 
 
-## Stream 3 of 3: cosmetics only. Deliberately unseeded. Must never influence
+## Card draws. Indexed by (level, action) rather than running, so a reroll --
+## which happens on player-dependent timing -- cannot shift any other stream.
+static func make_card_rng(date_string: String, level_index: int,
+		action_index: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash_string("%s#card#%d#%d" % [date_string, level_index, action_index])
+	return rng
+
+
+## Per-day rules drawn once at run start: weapon slots now, the enemy roster at
+## 6e. Separate salt so adding a draw here can never disturb wave spawning.
+static func make_daily_rng(date_string: String) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash_string("%s#daily" % date_string)
+	return rng
+
+
+## Stream: cosmetics only. Deliberately unseeded. Must never influence
 ## gameplay state.
 static func make_fx_rng() -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()

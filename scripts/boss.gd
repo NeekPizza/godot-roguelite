@@ -84,6 +84,12 @@ func _fire(delta: float) -> void:
 		shot_parent.add_child(shot)
 
 
+## Bosses are immovable by design — a boss that could be shoved out of its
+## telegraphed pattern would make the pattern unreadable.
+func push_away_from(_origin: Vector2, _distance: float) -> void:
+	pass
+
+
 func take_damage(amount: float) -> void:
 	if hp <= 0.0:
 		return

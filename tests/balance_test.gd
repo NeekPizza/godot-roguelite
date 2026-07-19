@@ -18,25 +18,28 @@ func _check(label: String, passed: bool) -> void:
 
 
 func _ready() -> void:
-	print("=== upgrades apply through the declared data path ===")
+	print("=== every passive applies through the declared data path ===")
 	var player: Node = load("res://scenes/player.tscn").instantiate()
 	add_child(player)
 
-	for entry in Balance.UPGRADES:
-		var stat: String = entry["stat"]
-		var before = player.get(stat)
-		Upgrades.apply(entry["id"], player)
-		var after = player.get(stat)
-		_check("%s -> %s (%s -> %s)" % [entry["id"], stat, str(before), str(after)],
-			after != before)
+	for passive_id in Balance.PASSIVES:
+		var entry: Dictionary = Balance.PASSIVES[passive_id]
+		var moved := false
+		for effect in entry["effects"]:
+			var stat: String = effect["stat"]
+			var before = player.get(stat)
+			Weapons.apply_passive(passive_id, player)
+			if player.get(stat) != before:
+				moved = true
+		_check("%s moves %d stat(s)" % [passive_id, entry["effects"].size()], moved)
 
 	print("\n=== effects and guards ===")
 	player.hp = 10.0
-	Upgrades.apply(Balance.UPGRADE_FALLBACK["id"], player)
+	player.heal(float(Balance.CARD_FALLBACK["heal"]))
 	_check("fallback Repair heals (hp now %.0f)" % player.hp, player.hp > 10.0)
 
 	for i in 30:
-		Upgrades.apply("magnetism", player)
+		Weapons.apply_passive("magnetism", player)
 	_check("pickup radius capped at %.0f (is %.0f)" % [
 		Balance.PLAYER_PICKUP_RADIUS_MAX, player.pickup_radius],
 		player.pickup_radius <= Balance.PLAYER_PICKUP_RADIUS_MAX)

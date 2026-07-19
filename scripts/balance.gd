@@ -55,16 +55,113 @@ const DASH_AFTERIMAGE_LIFETIME := 0.26
 const DASH_COOLDOWN_RING_RADIUS := 22.0
 
 # =============================================================================
-# WEAPON (Pulse)
+# WEAPONS (6b)
 # =============================================================================
-const WEAPON_DAMAGE := 10.0
-const WEAPON_FIRE_RATE := 2.0              # shots per second
-const WEAPON_PROJECTILE_COUNT := 1
-const WEAPON_PIERCE := 0
-const WEAPON_SPREAD_RADIANS := 0.18        # between volley projectiles
-const PROJECTILE_SPEED := 400.0
-const PROJECTILE_RANGE := 500.0            # also the auto-target range
+## Shared projectile geometry.
 const PROJECTILE_RADIUS := 4.0
+## Also the auto-target range for weapons that seek.
+const PROJECTILE_RANGE := 500.0
+const WEAPON_SPREAD_RADIANS := 0.18
+
+## cooldown_class decides WHICH passive speeds a weapon up, so the passive
+## choice depends on your loadout:
+##   "shot"   -> Overclock (per-shot fire rate)
+##   "volley" -> Cooldown Core (between-volley cooldown)
+##
+## Level scaling: additive per level for damage/count/pierce/radius,
+## multiplicative for cooldown, applied (level - 1) times.
+const WEAPONS := {
+	"pulse": {
+		"name": "Pulse", "desc": "Seeking shot at the nearest enemy",
+		"behavior": "seek", "cooldown_class": "shot", "max_level": 5,
+		"base": {"damage": 10.0, "cooldown": 0.50, "speed": 400.0, "count": 1,
+				 "pierce": 0, "radius": 4.0, "lifetime": 1.4},
+		"per_level": {"damage": 4.0, "count": 0, "pierce": 0, "radius": 0.0,
+					  "cooldown_mul": 0.88},
+	},
+	"orbit": {
+		"name": "Orbit", "desc": "Orbs circle you, damaging on contact",
+		"behavior": "orbit", "cooldown_class": "volley", "max_level": 5,
+		"base": {"damage": 8.0, "cooldown": 0.35, "speed": 2.2, "count": 2,
+				 "pierce": 0, "radius": 78.0, "lifetime": 0.0},
+		"per_level": {"damage": 3.0, "count": 1, "pierce": 0, "radius": 8.0,
+					  "cooldown_mul": 0.94},
+	},
+	"curveball": {
+		"name": "Curveball", "desc": "Shots arc outward, sweeping an area",
+		"behavior": "curve", "cooldown_class": "shot", "max_level": 5,
+		"base": {"damage": 9.0, "cooldown": 0.85, "speed": 330.0, "count": 2,
+				 "pierce": 1, "radius": 5.0, "lifetime": 1.8, "curve": 2.6},
+		"per_level": {"damage": 3.0, "count": 1, "pierce": 0, "radius": 0.0,
+					  "cooldown_mul": 0.90},
+	},
+	"boomerang": {
+		"name": "Boomerang", "desc": "Flies out and returns, hitting both ways",
+		"behavior": "boomerang", "cooldown_class": "volley", "max_level": 5,
+		"base": {"damage": 14.0, "cooldown": 1.30, "speed": 420.0, "count": 1,
+				 "pierce": 3, "radius": 8.0, "lifetime": 1.6},
+		"per_level": {"damage": 5.0, "count": 1, "pierce": 1, "radius": 1.0,
+					  "cooldown_mul": 0.90},
+	},
+	"nova": {
+		"name": "Nova", "desc": "Expanding ring that knocks enemies back",
+		"behavior": "nova", "cooldown_class": "volley", "max_level": 5,
+		"base": {"damage": 12.0, "cooldown": 2.60, "speed": 420.0, "count": 1,
+				 "pierce": 0, "radius": 190.0, "lifetime": 0.45,
+				 "knockback": 180.0},
+		"per_level": {"damage": 5.0, "count": 0, "pierce": 0, "radius": 26.0,
+					  "cooldown_mul": 0.90},
+	},
+}
+
+## Drawn once from the `daily` stream. Shown on the ranked confirmation screen —
+## it changes how you draft, so hiding it would be hiding a rule.
+## Everyone starts with Pulse so the first minute is never weaponless.
+const STARTING_WEAPON := "pulse"
+
+const WEAPON_SLOT_WEIGHTS := [[3, 0.45], [4, 0.35], [5, 0.20]]
+
+# =============================================================================
+# PASSIVES (global — they apply to every held weapon at once)
+# =============================================================================
+## A passive may carry several effects; `guard` needs two, and forcing it into
+## one would mean a special case in the apply path.
+##
+## Ops: "mul" / "add" on a player property, plus "add_max_hp" and "heal".
+const PASSIVES := {
+	"overclock": {"name": "Overclock", "desc": "+25% fire rate (shot weapons)", "max": 5,
+		"effects": [{"stat": "fire_rate_mult", "op": "mul", "value": 1.25}]},
+	"cooldown_core": {"name": "Cooldown Core", "desc": "-10% volley cooldown", "max": 5,
+		"effects": [{"stat": "volley_cooldown_mult", "op": "mul", "value": 0.90}]},
+	"hollow": {"name": "Hollow Point", "desc": "+15% damage", "max": 8,
+		"effects": [{"stat": "damage_mult", "op": "mul", "value": 1.15}]},
+	"split": {"name": "Split Shot", "desc": "+1 projectile", "max": 3,
+		"effects": [{"stat": "projectile_bonus", "op": "add", "value": 1}]},
+	"pierce": {"name": "Piercing", "desc": "+1 pierce", "max": 3,
+		"effects": [{"stat": "pierce_bonus", "op": "add", "value": 1}]},
+	"velocity": {"name": "Velocity Coil", "desc": "+20% projectile speed", "max": 3,
+		"effects": [{"stat": "projectile_speed_mult", "op": "mul", "value": 1.20}]},
+	"amplifier": {"name": "Amplifier", "desc": "+15% area and size", "max": 4,
+		"effects": [{"stat": "area_scale", "op": "mul", "value": 1.15}]},
+	"kinetics": {"name": "Kinetics", "desc": "+15% move speed", "max": 4,
+		"effects": [{"stat": "move_speed", "op": "mul", "value": 1.15}]},
+	"magnetism": {"name": "Magnetism", "desc": "+30 pickup range", "max": 4,
+		"effects": [{"stat": "pickup_radius", "op": "add", "value": 30.0}]},
+	"vitality": {"name": "Vitality", "desc": "+20 max HP", "max": 4,
+		"effects": [{"stat": "max_hp", "op": "add_max_hp", "value": 20.0}]},
+	"guard": {"name": "Guard", "desc": "-15% dash cooldown, +10% i-frames", "max": 3,
+		"effects": [{"stat": "dash_cooldown_scale", "op": "mul", "value": 0.85},
+					{"stat": "dash_iframe_scale", "op": "mul", "value": 1.10}]},
+	## XP only. The roster's "+drop luck" is deliberately absent: the drop
+	## schedule is precomputed from the seed at run start, so a passive that
+	## changed drop rates would make drops depend on the player's build and
+	## forfeit the strongest determinism guarantee in the design.
+	"greed": {"name": "Greed", "desc": "+15% XP gained", "max": 4,
+		"effects": [{"stat": "xp_gain_mult", "op": "mul", "value": 1.15}]},
+}
+
+## Offered when nothing else is available, so there is always a choice to make.
+const CARD_FALLBACK := {"id": "heal", "name": "Repair", "desc": "+25 HP", "heal": 25.0}
 
 # =============================================================================
 # XP AND LEVELLING
@@ -72,45 +169,10 @@ const PROJECTILE_RADIUS := 4.0
 ## XP needed for level N = XP_BASE + (N - 1) * XP_STEP
 const XP_BASE := 6
 const XP_STEP := 5
+
 const LEVEL_UP_CHOICES := 3
-
-# =============================================================================
-# UPGRADES
-# =============================================================================
-## Effects are DECLARED, not coded. Supported ops:
-##   "mul"         stat *= value
-##   "add"         stat += value
-##   "heal"        restore `value` HP
-##   "add_max_hp"  raise max HP by `value` and grant it immediately
-##
-## `stat` is a property name on the player, so adding an upgrade that touches
-## an existing stat needs no code change at all.
-const UPGRADES := [
-	{"id": "overclock", "name": "Overclock",    "desc": "+25% fire rate",
-	 "stat": "fire_rate",        "op": "mul", "value": 1.25, "max": 5},
-	{"id": "hollow",    "name": "Hollow Point", "desc": "+5 damage",
-	 "stat": "damage",           "op": "add", "value": 5.0,  "max": 8},
-	{"id": "split",     "name": "Split Shot",   "desc": "+1 projectile",
-	 "stat": "projectile_count", "op": "add", "value": 1,    "max": 3},
-	{"id": "pierce",    "name": "Piercing",     "desc": "+1 pierce",
-	 "stat": "pierce",           "op": "add", "value": 1,    "max": 3},
-	{"id": "kinetics",  "name": "Kinetics",     "desc": "+15% move speed",
-	 "stat": "move_speed",       "op": "mul", "value": 1.15, "max": 4},
-	# Additive, not multiplicative: a percentage compounds past the pickup cap.
-	{"id": "magnetism", "name": "Magnetism",    "desc": "+30 pickup range",
-	 "stat": "pickup_radius",    "op": "add", "value": 30.0, "max": 4},
-	{"id": "vitality",  "name": "Vitality",     "desc": "+20 max HP",
-	 "stat": "max_hp",           "op": "add_max_hp", "value": 20.0, "max": 4},
-	{"id": "velocity",  "name": "Velocity",     "desc": "+20% shot speed",
-	 "stat": "projectile_speed", "op": "mul", "value": 1.20, "max": 3},
-]
-
-## Offered when fewer than LEVEL_UP_CHOICES upgrades remain available, so there
-## is always a choice to make.
-const UPGRADE_FALLBACK := {
-	"id": "heal", "name": "Repair", "desc": "+10 HP",
-	"stat": "", "op": "heal", "value": 10.0, "max": -1,
-}
+const REROLLS_PER_RUN := 3
+const BANISHES_PER_RUN := 2
 
 # =============================================================================
 # ENEMIES

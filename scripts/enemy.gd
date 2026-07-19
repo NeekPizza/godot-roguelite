@@ -102,6 +102,15 @@ func _try_shoot(delta: float) -> void:
 	shot_parent.add_child(shot)
 
 
+## Nova knockback. Enemies move themselves every frame, so a physics impulse
+## would simply be overwritten; nudging the position is the honest way to do it.
+func push_away_from(origin: Vector2, distance: float) -> void:
+	var away := position - origin
+	if away.length() < 0.001:
+		return
+	position = Arena.clamp_position(position + away.normalized() * distance, radius)
+
+
 func take_damage(amount: float) -> void:
 	if hp <= 0.0:
 		return  # Already dead this frame; never emit `killed` twice.

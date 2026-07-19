@@ -731,7 +731,7 @@ is meaningless without slot pressure to play against), and **drops before elites
 | Sub-phase | Roster items | New RNG work |
 |---|---|---|
 | **6a** | **DONE.** Dash (i-frames, tell, cooldown); EXP bar labelled + gem-gold; HEALTH bar labelled + green | None — dash is input, not randomness. Digest gained `dashes`, and the scripted test player now dashes. |
-| **6b** | Weapons: Pulse, Orbit, Curveball, Boomerang, Nova · Passives: Cooldown Core, Amplifier, Guard, Greed · slot system · reroll + banish | `daily` stream (slot count); `reroll` stream indexed by `(level, action)` |
+| **6b** | **DONE.** Weapons: Pulse, Orbit, Curveball, Boomerang, Nova · Passives: Cooldown Core, Amplifier, Guard, Greed · slot system · reroll + banish | `daily` stream (slot count); card draws indexed by `(date, level, action)`. Digest gained slots, weapons, passives, banished, rerolls, banishes. |
 | **6c** | Evolutions: Railgun, Event Horizon, Blade Storm, Supernova · combo multiplier | None — both deterministic given play |
 | **6d** | Pickups: Bomb, Magnet, Health, Invulnerability · Temp weapons: Shotgun, Machine Gun, Splash Gun | `drops` stream, **schedule precomputed at run start** |
 | **6e** | Enemies: Dasher, Shielded, Bomber, Weaver · seed-selected daily roster · elites | Roster from `daily`; spawn block grows 3 draws → **5** (elite + elite-drop) |

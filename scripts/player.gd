@@ -12,9 +12,10 @@ signal xp_collected(amount: int)
 const COLOR_BODY := Color(0.25, 0.95, 1.0)
 const COLOR_HURT := Color(1.0, 0.35, 0.45)
 
-const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
-
-# --- Stat block. Upgrades mutate these by name (see upgrades.gd). ---
+# --- Stat block ---
+# Weapons carry their own numbers (balance.gd WEAPONS); everything here is a
+# GLOBAL passive modifier applied on top of every held weapon. Passives mutate
+# these by name, so a new passive touching an existing stat needs no new code.
 var max_hp := Balance.PLAYER_MAX_HP
 var hp := Balance.PLAYER_MAX_HP
 var move_speed := Balance.PLAYER_MOVE_SPEED
@@ -23,11 +24,15 @@ var move_speed := Balance.PLAYER_MOVE_SPEED
 var pickup_radius := Balance.PLAYER_PICKUP_RADIUS:
 	set(value):
 		pickup_radius = minf(value, Balance.PLAYER_PICKUP_RADIUS_MAX)
-var damage := Balance.WEAPON_DAMAGE
-var fire_rate := Balance.WEAPON_FIRE_RATE
-var projectile_speed := Balance.PROJECTILE_SPEED
-var projectile_count := Balance.WEAPON_PROJECTILE_COUNT
-var pierce := Balance.WEAPON_PIERCE
+
+var damage_mult := 1.0
+var fire_rate_mult := 1.0            # Overclock — per-shot weapons
+var volley_cooldown_mult := 1.0      # Cooldown Core — volley weapons
+var projectile_speed_mult := 1.0
+var projectile_bonus := 0
+var pierce_bonus := 0
+var area_scale := 1.0
+var xp_gain_mult := 1.0
 
 var projectile_parent: Node2D
 var godmode := false  # test hook only; see docs/TESTING.md
@@ -78,7 +83,6 @@ func _physics_process(delta: float) -> void:
 	_move(delta)
 	_collect_pickups()
 	_take_contact_damage()
-	_fire(delta)
 	queue_redraw()
 
 
@@ -171,42 +175,6 @@ func _input_direction() -> Vector2:
 	)
 
 
-func _fire(delta: float) -> void:
-	_fire_cooldown -= delta
-	if _fire_cooldown > 0.0:
-		return
-
-	var target := _nearest_enemy()
-	if target == null:
-		return  # Nothing in range: hold fire rather than waste the volley.
-
-	_fire_cooldown = 1.0 / fire_rate
-	var aim := (target.position - position).normalized()
-
-	# Spread the volley symmetrically around the aim vector.
-	for i in projectile_count:
-		var offset := (float(i) - float(projectile_count - 1) * 0.5) * Balance.WEAPON_SPREAD_RADIANS
-		var projectile := PROJECTILE_SCENE.instantiate()
-		projectile.position = position
-		projectile.setup(aim.rotated(offset), damage, pierce, projectile_speed)
-		projectile_parent.add_child(projectile)
-
-	Sfx.play("shoot")
-
-
-func _nearest_enemy() -> Node2D:
-	var nearest: Node2D = null
-	var nearest_distance_squared := INF
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		var distance_squared: float = position.distance_squared_to(enemy.position)
-		if distance_squared < nearest_distance_squared:
-			nearest_distance_squared = distance_squared
-			nearest = enemy
-	if nearest_distance_squared > Balance.PROJECTILE_RANGE * Balance.PROJECTILE_RANGE:
-		return null
-	return nearest
-
-
 func _collect_pickups() -> void:
 	var radius_squared := pickup_radius * pickup_radius
 	var body_squared := Balance.PLAYER_RADIUS * Balance.PLAYER_RADIUS
@@ -215,7 +183,9 @@ func _collect_pickups() -> void:
 		if distance_squared <= radius_squared:
 			gem.attract_to(self)
 		if distance_squared <= body_squared:
-			xp_collected.emit(gem.value)
+			# Greed scales collection, rounded up so a partial bonus is never
+			# silently discarded on 1-XP gems.
+			xp_collected.emit(int(ceil(float(gem.value) * xp_gain_mult)))
 			gem.queue_free()
 
 
