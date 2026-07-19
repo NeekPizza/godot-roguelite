@@ -10,8 +10,37 @@ extends RefCounted
 ## weapons you are actually holding.
 
 
+## Base and evolved weapons share one lookup so every downstream caller —
+## stats, the HUD, the digest — treats them identically.
 static func definition(weapon_id: String) -> Dictionary:
-	return Balance.WEAPONS.get(weapon_id, {})
+	if Balance.WEAPONS.has(weapon_id):
+		return Balance.WEAPONS[weapon_id]
+	return Balance.EVOLVED_WEAPONS.get(weapon_id, {})
+
+
+static func is_evolved(weapon_id: String) -> bool:
+	return Balance.EVOLVED_WEAPONS.has(weapon_id)
+
+
+## The evolution a (weapon, passives) pair unlocks, or "" if none is ready.
+static func ready_evolution(weapon_id: String, level: int, stacks: Dictionary) -> String:
+	if level < max_level(weapon_id):
+		return ""
+	for recipe in Balance.EVOLUTIONS:
+		if recipe["weapon"] != weapon_id:
+			continue
+		var passive_id: String = recipe["passive"]
+		if int(stacks.get(passive_id, 0)) >= int(Balance.PASSIVES[passive_id]["max"]):
+			return recipe["result"]
+	return ""
+
+
+## What a base weapon needs, for the card hint.
+static func recipe_for(weapon_id: String) -> Dictionary:
+	for recipe in Balance.EVOLUTIONS:
+		if recipe["weapon"] == weapon_id:
+			return recipe
+	return {}
 
 
 static func max_level(weapon_id: String) -> int:
@@ -53,6 +82,7 @@ static func stats(weapon_id: String, level: int, player: Node) -> Dictionary:
 
 	out["cooldown"] = maxf(0.05, out["cooldown"])
 	out["behavior"] = definition_data["behavior"]
+	out["pull"] = float(definition_data.get("pull", 0.0))
 	return out
 
 

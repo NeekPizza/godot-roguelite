@@ -114,6 +114,72 @@ const WEAPONS := {
 	},
 }
 
+## --- Evolved weapons -------------------------------------------------------
+## Marked `evolved` so the deck never offers them as a new weapon: the only way
+## in is the recipe. They reuse existing behaviours with much stronger numbers
+## rather than introducing new systems — Railgun is a very fast, very long-lived,
+## high-pierce projectile rather than a swept beam, which is the same reason
+## Lance was held back from v1.2.
+const EVOLVED_WEAPONS := {
+	"railgun": {
+		"name": "Railgun", "desc": "Punches a line through everything",
+		"behavior": "seek", "cooldown_class": "shot", "max_level": 3,
+		"evolved": true,
+		"base": {"damage": 46.0, "cooldown": 0.70, "speed": 1250.0, "count": 1,
+				 "pierce": 40, "radius": 7.0, "lifetime": 1.2},
+		"per_level": {"damage": 18.0, "count": 0, "pierce": 0, "radius": 1.0,
+					  "cooldown_mul": 0.86},
+	},
+	"event_horizon": {
+		"name": "Event Horizon", "desc": "A vast ring that drags enemies inward",
+		"behavior": "orbit", "cooldown_class": "volley", "max_level": 3,
+		"evolved": true, "pull": 60.0,
+		"base": {"damage": 22.0, "cooldown": 0.22, "speed": 1.7, "count": 6,
+				 "pierce": 0, "radius": 150.0, "lifetime": 0.0},
+		"per_level": {"damage": 8.0, "count": 2, "pierce": 0, "radius": 16.0,
+					  "cooldown_mul": 0.94},
+	},
+	"blade_storm": {
+		"name": "Blade Storm", "desc": "A returning fan of blades",
+		"behavior": "boomerang", "cooldown_class": "volley", "max_level": 3,
+		"evolved": true,
+		"base": {"damage": 34.0, "cooldown": 0.85, "speed": 520.0, "count": 5,
+				 "pierce": 12, "radius": 11.0, "lifetime": 1.7},
+		"per_level": {"damage": 12.0, "count": 2, "pierce": 2, "radius": 1.0,
+					  "cooldown_mul": 0.88},
+	},
+	"supernova": {
+		"name": "Supernova", "desc": "Near-constant expanding shockwaves",
+		"behavior": "nova", "cooldown_class": "volley", "max_level": 3,
+		"evolved": true,
+		"base": {"damage": 40.0, "cooldown": 0.90, "speed": 520.0, "count": 1,
+				 "pierce": 0, "radius": 300.0, "lifetime": 0.50,
+				 "knockback": 240.0},
+		"per_level": {"damage": 14.0, "count": 0, "pierce": 0, "radius": 40.0,
+					  "cooldown_mul": 0.90},
+	},
+}
+
+## Base weapon at MAX LEVEL + paired passive at MAX STACKS -> evolution.
+## Taking it replaces the base weapon in place and does not cost a slot.
+const EVOLUTIONS := [
+	{"weapon": "pulse",     "passive": "pierce",        "result": "railgun"},
+	{"weapon": "orbit",     "passive": "amplifier",     "result": "event_horizon"},
+	{"weapon": "boomerang", "passive": "split",         "result": "blade_storm"},
+	{"weapon": "nova",      "passive": "cooldown_core", "result": "supernova"},
+]
+
+# =============================================================================
+# COMBO (6c)
+# =============================================================================
+## Multiplies KILL SCORE ONLY — not survival, not XP. Multiplying survival would
+## reward turtling with a full bar, which is exactly the play the scoring exists
+## to discourage.
+const COMBO_WINDOW := 2.5          # seconds since the last kill before it decays
+const COMBO_PER_KILL := 0.02
+const COMBO_MAX_BONUS := 1.5       # so x2.5 at the cap
+const COMBO_DECAY_PER_SEC := 6.7   # chain units lost per second once it lapses
+
 ## Everyone starts with Pulse so the first minute is never weaponless.
 const STARTING_WEAPON := "pulse"
 

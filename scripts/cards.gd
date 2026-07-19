@@ -16,6 +16,7 @@ const KIND_WEAPON_NEW := "weapon_new"
 const KIND_WEAPON_LEVEL := "weapon_level"
 const KIND_PASSIVE := "passive"
 const KIND_HEAL := "heal"
+const KIND_EVOLUTION := "evolution"
 
 
 ## Everything currently offerable, in a FIXED order.
@@ -29,6 +30,19 @@ static func eligible(state: Dictionary) -> Array:
 	var stacks: Dictionary = state["passives"]      # id -> stacks
 	var banished: Array = state["banished"]
 	var slots: int = state["slots"]
+
+	# Evolutions first: an unlocked recipe should be visible the moment it is
+	# available, not buried behind a level card for the same weapon.
+	for weapon_id in owned:
+		var evolution := Weapons.ready_evolution(weapon_id, int(owned[weapon_id]), stacks)
+		if evolution == "":
+			continue
+		pool.append({
+			"kind": KIND_EVOLUTION, "id": evolution, "base": weapon_id,
+			"name": Weapons.definition(evolution)["name"],
+			"desc": Weapons.definition(evolution)["desc"],
+			"level": 1,
+		})
 
 	for weapon_id in Balance.WEAPONS:
 		if banished.has(weapon_id):
@@ -49,6 +63,17 @@ static func eligible(state: Dictionary) -> Array:
 				"name": Balance.WEAPONS[weapon_id]["name"],
 				"desc": Balance.WEAPONS[weapon_id]["desc"],
 				"level": 1,
+			})
+
+	for weapon_id in owned:
+		if not Weapons.is_evolved(weapon_id):
+			continue
+		if int(owned[weapon_id]) < Weapons.max_level(weapon_id):
+			pool.append({
+				"kind": KIND_WEAPON_LEVEL, "id": weapon_id,
+				"name": Weapons.definition(weapon_id)["name"],
+				"desc": "Level %d" % (int(owned[weapon_id]) + 1),
+				"level": int(owned[weapon_id]) + 1,
 			})
 
 	for passive_id in Balance.PASSIVES:

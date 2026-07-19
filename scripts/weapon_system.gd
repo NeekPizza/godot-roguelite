@@ -40,14 +40,31 @@ func add_or_level(weapon_id: String) -> void:
 	else:
 		owned[weapon_id] = 1
 		_cooldowns[weapon_id] = 0.0
-	if Balance.WEAPONS[weapon_id]["behavior"] == "orbit":
+	if Weapons.definition(weapon_id)["behavior"] == "orbit":
+		_rebuild_orbs()
+
+
+## Replace a base weapon with its evolution IN PLACE, preserving acquisition
+## order so the HUD and digest stay stable, and costing no slot.
+func evolve(base_id: String, evolved_id: String) -> void:
+	var rebuilt := {}
+	for weapon_id in owned:
+		if weapon_id == base_id:
+			rebuilt[evolved_id] = 1
+		else:
+			rebuilt[weapon_id] = owned[weapon_id]
+	owned = rebuilt
+	_cooldowns.erase(base_id)
+	_cooldowns[evolved_id] = 0.0
+	if Weapons.definition(evolved_id)["behavior"] == "orbit" \
+			or Balance.WEAPONS.get(base_id, {}).get("behavior", "") == "orbit":
 		_rebuild_orbs()
 
 
 func summary() -> String:
 	var parts := PackedStringArray()
 	for weapon_id in owned:
-		parts.append("%s %d" % [Balance.WEAPONS[weapon_id]["name"], int(owned[weapon_id])])
+		parts.append("%s %d" % [Weapons.definition(weapon_id)["name"], int(owned[weapon_id])])
 	return "  ".join(parts)
 
 
@@ -159,6 +176,13 @@ func _fire_nova(stats: Dictionary) -> void:
 
 # --- Orbit -------------------------------------------------------------------
 
+func _orbit_weapon_id() -> String:
+	for weapon_id in owned:
+		if Weapons.definition(weapon_id)["behavior"] == "orbit":
+			return weapon_id
+	return ""
+
+
 func _tick_orbit(stats: Dictionary, delta: float) -> void:
 	if _orbs.size() != int(stats["count"]):
 		_rebuild_orbs()
@@ -168,15 +192,26 @@ func _tick_orbit(stats: Dictionary, delta: float) -> void:
 		_orbs[i].position = Vector2(stats["radius"], 0.0).rotated(angle)
 		_orbs[i].configure(stats["damage"], 8.0 * player.area_scale)
 
+	# Event Horizon drags enemies inward. Pure geometry, no RNG, and it uses the
+	# same position-nudge as knockback because enemies drive their own movement.
+	var pull := float(stats.get("pull", 0.0))
+	if pull > 0.0:
+		var reach: float = stats["radius"] * 1.6
+		for enemy in get_tree().get_nodes_in_group("enemy"):
+			var offset: Vector2 = player.position - enemy.position
+			if offset.length() <= reach and enemy.has_method("push_away_from"):
+				enemy.push_away_from(player.position, -pull * delta)
+
 
 func _rebuild_orbs() -> void:
 	for orb in _orbs:
 		if is_instance_valid(orb):
 			orb.queue_free()
 	_orbs.clear()
-	if not owned.has("orbit"):
+	var orbit_id := _orbit_weapon_id()
+	if orbit_id == "":
 		return
-	var stats := Weapons.stats("orbit", int(owned["orbit"]), player)
+	var stats := Weapons.stats(orbit_id, int(owned[orbit_id]), player)
 	for i in int(stats["count"]):
 		var orb := ORB_SCENE.instantiate()
 		add_child(orb)

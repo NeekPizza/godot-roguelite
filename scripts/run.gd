@@ -31,6 +31,7 @@ var _weapons: Node2D
 @onready var _exp_label: Label = $HUD/Root/ExpLabel
 @onready var _health_label: Label = $HUD/Root/HealthLabel
 @onready var _weapons_label: Label = $HUD/Root/WeaponsLabel
+@onready var _combo_label: Label = $HUD/Root/ComboLabel
 
 @onready var _levelup_layer: CanvasLayer = $LevelUpLayer
 @onready var _levelup_buttons: HBoxContainer = $LevelUpLayer/Root/Center/Panel/Cards
@@ -65,6 +66,10 @@ var _banishes_left := Balance.BANISHES_PER_RUN
 var _banish_armed := false
 var _current_cards: Array = []
 var _weapon_slots := 3
+
+# --- Combo (6c) ---
+var _combo_chain := 0.0
+var _combo_idle := 0.0        # seconds since the last kill
 
 var _kills := 0
 var _kill_score := 0
@@ -182,6 +187,7 @@ func _physics_process(delta: float) -> void:
 		_end_run()
 		return
 
+	_tick_combo(step)
 	_check_boss_schedule()
 	_schedule_waves(step)
 	_update_hud()
@@ -230,6 +236,26 @@ func _tint_bar(bar: ProgressBar, colour: Color) -> void:
 		var styled: StyleBoxFlat = fill.duplicate()
 		styled.bg_color = colour
 		bar.add_theme_stylebox_override("fill", styled)
+
+
+# --- Combo -------------------------------------------------------------------
+
+## Kills inside COMBO_WINDOW of each other build a chain; it bleeds away once
+## you stop. Multiplies KILL SCORE ONLY — multiplying survival time would reward
+## turtling with a full bar, which is the play the scoring exists to discourage.
+func _tick_combo(delta: float) -> void:
+	_combo_idle += delta
+	if _combo_idle > Balance.COMBO_WINDOW:
+		_combo_chain = maxf(0.0, _combo_chain - Balance.COMBO_DECAY_PER_SEC * delta)
+
+
+func combo_multiplier() -> float:
+	return 1.0 + minf(Balance.COMBO_MAX_BONUS, _combo_chain * Balance.COMBO_PER_KILL)
+
+
+func _register_combo_kill() -> void:
+	_combo_idle = 0.0
+	_combo_chain += 1.0
 
 
 # --- Pause -------------------------------------------------------------------
@@ -402,6 +428,7 @@ func _deal_cards() -> void:
 ## Cards compete for attention under pressure, so each says what KIND it is.
 func _card_tag(card: Dictionary) -> String:
 	match card["kind"]:
+		Cards.KIND_EVOLUTION:    return "EVOLUTION"
 		Cards.KIND_WEAPON_NEW:   return "NEW WEAPON"
 		Cards.KIND_WEAPON_LEVEL: return "WEAPON  Lv%d" % int(card["level"])
 		Cards.KIND_PASSIVE:      return "PASSIVE  Lv%d" % int(card["level"])
@@ -465,6 +492,9 @@ func _on_card_chosen(index: int) -> void:
 
 func _take_card(card: Dictionary) -> void:
 	match card["kind"]:
+		Cards.KIND_EVOLUTION:
+			_weapons.evolve(card["base"], card["id"])
+			Sfx.play("level_up")
 		Cards.KIND_WEAPON_NEW, Cards.KIND_WEAPON_LEVEL:
 			_weapons.add_or_level(card["id"])
 		Cards.KIND_PASSIVE:
@@ -484,7 +514,8 @@ func _score() -> int:
 
 func _on_enemy_killed(enemy: Area2D) -> void:
 	_kills += 1
-	_kill_score += int(enemy.stats["score"])
+	_register_combo_kill()
+	_kill_score += int(round(float(enemy.stats["score"]) * combo_multiplier()))
 
 	var gem := XP_GEM_SCENE.instantiate()
 	gem.position = enemy.position
@@ -518,7 +549,8 @@ func _split(parent_enemy: Area2D) -> void:
 ## Killing a boss does NOT end the run — it is a pace break and a depth marker.
 func _on_boss_killed(boss: Area2D) -> void:
 	_bosses_killed += 1
-	_kill_score += int(boss.score_value)
+	_register_combo_kill()
+	_kill_score += int(round(float(boss.score_value) * combo_multiplier()))
 
 	# Guaranteed XP at fixed offsets, so the payout cannot vary between players.
 	for i in Balance.BOSS_GEM_COUNT:
@@ -621,9 +653,9 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
-		JSON.stringify(_banished), _rerolls_left, _banishes_left,
+		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
 	]
 
 
@@ -636,6 +668,14 @@ func _format_time(seconds: float) -> String:
 func _update_hud() -> void:
 	_timer_label.text = _format_time(_elapsed)   # counts UP; endless
 	_score_label.text = "SCORE %d" % _score()
+	var multiplier := combo_multiplier()
+	if multiplier > 1.001:
+		_combo_label.text = "x%.2f" % multiplier
+		_combo_label.modulate = Color(1.0, 0.92, 0.25).lerp(
+			Color(1.0, 0.35, 0.45),
+			clampf((multiplier - 1.0) / maxf(0.001, Balance.COMBO_MAX_BONUS), 0.0, 1.0))
+	else:
+		_combo_label.text = ""
 	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
 	_weapons_label.text = "%s     [%d/%d slots]" % [
 		_weapons.summary(), _weapons.slots_used(), _weapon_slots]

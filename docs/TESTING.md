@@ -114,6 +114,7 @@ godot --headless tests/steering_test.tscn                            # input/ste
 godot --headless tests/input_test.tscn                               # controller bindings
 godot --headless tests/dash_test.tscn                                # dash i-frames, cooldown, tell
 godot --headless tests/weapons_test.tscn                             # weapons, slots, card determinism
+godot --headless tests/evolution_test.tscn                           # evolution recipes, combo multiplier
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```
@@ -157,3 +158,14 @@ godot -- --ranked --godmode --max-seconds=5 --auto-pick --quit-on-end
 
 The anti-cheat posture is deliberately minimal (GDD section 10), but letting
 `--godmode --ranked` submit a score was a step too far to leave in for free.
+
+## Test scenes should be run with a frame cap
+
+```bash
+godot --headless --quit-after 600 tests/evolution_test.tscn
+```
+
+A test scene calls `get_tree().quit()` at the end of `_ready()`. If a parse or
+runtime error stops `_ready()` before that line, the scene simply keeps running
+and the process hangs forever rather than failing. `--quit-after` bounds it, and
+the error is then visible in the output.
