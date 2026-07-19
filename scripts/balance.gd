@@ -114,12 +114,17 @@ const WEAPONS := {
 	},
 }
 
-## Drawn once from the `daily` stream. Shown on the ranked confirmation screen —
-## it changes how you draft, so hiding it would be hiding a rule.
 ## Everyone starts with Pulse so the first minute is never weaponless.
 const STARTING_WEAPON := "pulse"
 
-const WEAPON_SLOT_WEIGHTS := [[3, 0.45], [4, 0.35], [5, 0.20]]
+## CAPPED AT 3. Kept as a weight table rather than a bare constant so re-opening
+## day-to-day variance stays a data change.
+##
+## The draw from the `daily` stream is deliberately still made even though the
+## outcome is fixed: 6e adds the enemy-roster draw to that same stream, and
+## dropping this draw later would shift the roster draw and silently change what
+## every past seed means.
+const WEAPON_SLOT_WEIGHTS := [[3, 1.0]]
 
 # =============================================================================
 # PASSIVES (global — they apply to every held weapon at once)

@@ -173,20 +173,18 @@ it is not a new entry.
 
 ### Weapon slots are set by the daily seed
 
-**3, 4 or 5 weapons**, drawn once from the `daily` stream, identical for everyone
-on that seed, and shown **on the ranked confirmation screen** before the attempt
-is spent. It changes how you draft, so hiding it would be hiding a rule.
-
-| Slots | Weight | Feel |
-|---|---|---|
-| 3 | 0.45 | Forced specialisation; evolutions come early |
-| 4 | 0.35 | The middle |
-| 5 | 0.20 | Sprawling, generalist builds |
+**Capped at 3.** Five weapons exist and you may hold three, so every run is a
+real draft. The count is still drawn from the `daily` stream and still shown on
+the menu and the ranked confirmation, but the table currently has one entry.
 
 Once slots are full, cards offer levels for weapons you hold rather than new
-ones. With five weapons available and three slots, a low-slot day is a genuinely
-different draft — which, with the seed-selected enemy roster, is the substantive
-answer to every day otherwise sharing one pacing skeleton.
+ones. Three slots also means evolutions (section 6b) are reachable rather than
+theoretical: a wider loadout spreads levels too thin to max anything.
+
+**Consequence to note:** slot count was previously the seed's strongest lever on
+how a day plays. With it fixed, the **seed-selected enemy roster** (section 5)
+carries that job alone. If days start feeling samey, that is where to look
+first — or re-open this table, which is a data change.
 
 ---
 

@@ -118,13 +118,14 @@ func _ready() -> void:
 
 	print("\n=== daily slot count ===")
 	var slots := Daily.weapon_slots("2026-01-01")
-	_check("in the 3-5 band (%d)" % slots, slots >= 3 and slots <= 5)
 	_check("same date -> same count", slots == Daily.weapon_slots("2026-01-01"))
-	var varies := false
+	# Slots are capped at 3, so every day must agree. If variance is ever
+	# re-opened this assertion is the thing that should fail first.
+	var all_three := slots == 3
 	for day in range(1, 40):
-		if Daily.weapon_slots("2026-02-%02d" % day) != slots:
-			varies = true
-	_check("varies across dates", varies)
+		if Daily.weapon_slots("2026-02-%02d" % day) != 3:
+			all_three = false
+	_check("capped at 3 on every date", all_three)
 
 	player.free()
 	print("\nRESULT: %s" % ("PASS" if _ok else "FAIL"))
