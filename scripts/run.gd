@@ -101,6 +101,7 @@ var _stage_clear_timer := 0.0
 var _boss_alive := false
 var _stages_cleared := 0
 var _boss_hp_mult := 1.0           # test hook only
+var _meta_bonus := 0.0
 var _boss_death_position := Vector2.ZERO
 
 # --- Combo (6c) ---
@@ -192,6 +193,18 @@ func _ready() -> void:
 	_weapons.projectile_parent = _projectiles
 	_weapons.add_or_level(Balance.STARTING_WEAPON)
 
+	# Meta-progression: player-side stats only, applied once, before anything
+	# else reads them. Nothing here can reach a seeded schedule.
+	Meta.apply(_player, MetaStore.purchases)
+	_rerolls_left += Meta.bonus_rerolls(MetaStore.purchases)
+	_xp_into_level = Meta.starting_xp(MetaStore.purchases, _xp_needed(1))
+	_meta_bonus = Meta.effective_bonus(MetaStore.purchases)
+	if _meta_bonus > 0.0:
+		print("[meta] applied %s (rerolls +%d, starting xp %d)" % [
+			MetaStore.bonus_text(), Meta.bonus_rerolls(MetaStore.purchases),
+			_xp_into_level])
+
+	_player.hp = _player.max_hp
 	_player.godmode = _godmode
 	_player.projectile_parent = _projectiles
 	_player.died.connect(_on_player_died)
@@ -995,6 +1008,8 @@ func _end_run() -> void:
 		_xp_collected, Score.PER_XP, _xp_collected * Score.PER_XP,
 		_bosses_killed,
 	]
+	if _meta_bonus > 0.0:
+		_gameover_label.text += "\n\nmeta bonus  %s" % MetaStore.bonus_text()
 	_gameover_label.text += "\n\n%s" % _score_table_text()
 	_gameover_layer.show()
 	Sfx.play("run_over")
@@ -1026,6 +1041,12 @@ func _record_result() -> void:
 	})
 	if _ranked:
 		SaveStore.finish_ranked_attempt(_date_string, final_score)
+		# RANKED ONLY. Practice and archive earn nothing.
+		var earned := Meta.points_for_run(_stage)
+		MetaStore.award_points(earned)
+		print("[meta] +%d points (stage %d)" % [earned, _stage])
+
+	MetaStore.record_run(_ranked, _stage, final_score, _kills, _bosses_killed)
 
 
 func _score_table_text() -> String:
@@ -1058,14 +1079,14 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d dropped(sched/elite/boss)=%d/%d/%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s stage=%d phase=%d stage_t=%.2f cleared=%d" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d dropped(sched/elite/boss)=%d/%d/%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s stage=%d phase=%d stage_t=%.2f cleared=%d meta=%.4f" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
 		_drops_taken, _pickups_scheduled, _pickups_elite, _pickups_boss,
 		_next_drop, Drops.schedule_digest(_drop_schedule),
 		",".join(PackedStringArray(_roster)), _elites_spawned,
 		",".join(PackedStringArray(_boss_log)),
-		_stage, _stage_phase, _stage_elapsed, _stages_cleared,
+		_stage, _stage_phase, _stage_elapsed, _stages_cleared, _meta_bonus,
 	]
 
 

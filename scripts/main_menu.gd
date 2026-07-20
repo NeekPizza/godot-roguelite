@@ -96,6 +96,8 @@ func _refresh() -> void:
 	else:
 		lines.append("Ranked attempt: used")
 	lines.append(Daily.summary(today))
+	lines.append("Meta bonus: %s   ·   %d points" % [
+		MetaStore.bonus_text(), MetaStore.points])
 	var best := SaveStore.best_score_for_date(today)
 	if best > 0:
 		lines.append("Best on today's seed: %d  (stage %d)" % [

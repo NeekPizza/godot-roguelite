@@ -547,6 +547,57 @@ const PORTAL_RADIUS := 34.0
 const PORTAL_SPIN := 1.4
 
 # =============================================================================
+# META-PROGRESSION (8a)
+# =============================================================================
+## Permanent, player-side only, and CAPPED. Every entry here is a number the
+## player carries — never a number the world is built from. There is no luck
+## stat and there will not be one: drop schedules are precomputed at stage
+## entry, so anything touching drop odds would make the world depend on a
+## profile (the same trap that removed Greed's "+drop luck").
+##
+## `at_cap` is the effect at full purchases. `kind`:
+##   "mult"      multiply a player property by (1 + at_cap * fraction)
+##   "headstart" begin with a fraction of the level-2 XP requirement
+##   "rerolls"   discrete grant, only at FULL purchases
+##
+## Cap accounting is uniform (META_PER_BUY_WEIGHT per purchase) even though the
+## effects are heterogeneous — the aggregate ceiling is an accounting device
+## across stats that are not otherwise comparable.
+const META_STATS := {
+	"hp":     {"name": "Vitality",  "desc": "+3% starting HP",
+			   "kind": "mult", "target": "max_hp", "at_cap": 0.03},
+	"speed":  {"name": "Fleetfoot", "desc": "+3% move speed",
+			   "kind": "mult", "target": "move_speed", "at_cap": 0.03},
+	"pickup": {"name": "Lodestone", "desc": "+3% pickup radius",
+			   "kind": "mult", "target": "pickup_radius", "at_cap": 0.03},
+	"dash":   {"name": "Reflex",    "desc": "-3% dash cooldown",
+			   "kind": "mult", "target": "dash_cooldown_scale", "at_cap": -0.03},
+	"xp":     {"name": "Headstart", "desc": "Start closer to level 2",
+			   "kind": "headstart", "at_cap": 1.0},
+	"reroll": {"name": "Foresight", "desc": "+1 reroll, at full only",
+			   "kind": "rerolls", "at_cap": 1},
+	## Deliberately the weakest option: damage compounds with in-run upgrades
+	## and is the one place an unfair edge would actually show.
+	"damage": {"name": "Edge",      "desc": "+3% damage",
+			   "kind": "mult", "target": "damage_mult", "at_cap": 0.03},
+}
+
+const META_MAX_BUYS := 12                # per stat
+const META_PER_BUY_WEIGHT := 0.0025      # toward the aggregate ceiling
+## HARD. Whatever is spent, total meta power never exceeds this.
+const META_AGGREGATE_CAP := 0.10
+const META_COST_BASE := 12.0
+const META_COST_GROWTH := 1.19
+
+## Ranked runs only. The stage term is CAPPED on purpose: uncapped, a strong
+## player earns 2.8x a newcomer's rate and pulls away, which fights convergence.
+## Capped, the ratio is 1.6x and the large flat base keeps a struggling player
+## converging too.
+const META_POINTS_BASE := 24
+const META_POINTS_PER_STAGE := 3
+const META_POINTS_STAGE_CAP := 8
+
+# =============================================================================
 # SCORING
 # =============================================================================
 const SCORE_PER_SECOND := 5

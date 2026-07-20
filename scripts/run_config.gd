@@ -25,12 +25,16 @@ const MODE_ARCHIVE := 2
 const TEST_HOOK_ARGS := [
 	"--godmode", "--auto-pick",
 	"--time-scale=", "--max-seconds=", "--scripted-input=", "--boss-hp-mult=",
+	## Without this, a fresh profile could launch --meta-profile=max --ranked
+	## and submit a maxed score having earned none of it — another
+	## --godmode-shaped hole.
+	"--meta-profile=",
 ]
 
 const AUTO_START_ARGS := [
 	"--ranked", "--practice", "--godmode", "--auto-pick",
 	"--date=", "--max-seconds=", "--time-scale=", "--scripted-input=",
-	"--boss-hp-mult=",
+	"--boss-hp-mult=", "--meta-profile=",
 ]
 
 var date_string := ""

@@ -1327,7 +1327,7 @@ anything away, and they map cleanly onto per-month Steam leaderboards.
 
 | Phase | Scope | Determinism work |
 |---|---|---|
-| **8a** | Meta profile persistence, point awards from ranked runs, seven stats, cost curve, caps, free respec, applied to the player at run start | `--meta-profile` hook; the check runs at zero **and** at max |
+| **8a** | **DONE.** Meta profile persistence, point awards from ranked runs, seven stats, cost curve, caps, free respec, applied to the player at run start | `--meta-profile` hook; the check runs at zero **and** at max |
 | **8b** | Upgrade screen from the main menu: costs, caps, tier readout, respec, transparency | None |
 | **8c** | Records, lifetime stats, NEW PERSONAL BEST moment | None |
 | **8d** | Cosmetics and titles | Cosmetics must not reach the stat path |

@@ -23,6 +23,7 @@ SaveStore="*res://scripts/save_store.gd"
 RunConfig="*res://scripts/run_config.gd"
 SettingsStore="*res://scripts/settings_store.gd"
 Screenshot="*res://scripts/screenshot.gd"
+MetaStore="*res://scripts/meta_store.gd"
 
 [display]
 
