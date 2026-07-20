@@ -1,8 +1,12 @@
 # Game Design Document — *Daily Seed* (working title)
 
-**Version 1.3** — **stage progression.** The run is cut into escalating,
+**Version 1.4** — **meta-progression.** Small, converging permanent upgrades
+earned from ranked runs, plus records, cosmetics and titles. Planned in sections
+20–24; nothing in this version is built yet.
+
+*(v1.3 was **stage progression.** The run is cut into escalating,
 boss-gated stages with per-stage clocks, schedules, palettes and rosters.
-Planned in sections 16 and 17; nothing in this version is built yet.
+Planned in sections 16 and 17.)*
 
 *(v1.2 was the content expansion: dash, a weapon roster with seed-limited
 slots, evolutions, a combo multiplier, drops, an expanded bestiary with elites,
@@ -699,6 +703,8 @@ CC0 or self-generated only.
 - **v1.2 content expansion** — planned in section 14: a weapon roster with
   seed-limited slots, weapon evolutions, a combo multiplier, drops and temporary
   weapons, four more enemies plus elites, telegraphed boss archetypes, a dash.
+- **v1.4 meta-progression** (sections 20–25): capped, converging permanent
+  upgrades from ranked runs, records, cosmetics, titles.
 - **v1.3 stage progression** (sections 16–19): boss-gated stages with per-stage
   clocks, schedules, palettes and rosters; portals; boss enrage; stage reached
   tracked alongside score.
@@ -714,6 +720,8 @@ into the build:
   (7e). Collision geometry and the pathing it forces on nine enemy behaviours is
   a system of its own, and stages deliver their escalation through palette,
   roster and multipliers without it.
+- **Seasonal meta resets** — considered and declined, section 23. Seasonal
+  *leaderboards* remain an option; a meta wipe does not.
 - Multiple maps or biomes beyond the per-stage palette cycle
 - Player characters with different starting kits
 - Per-weapon passive trees (passives stay global — see section 4)
@@ -1163,4 +1171,206 @@ STAGE_CLEAR = {
 }
 
 PORTAL = {radius: 34.0, spin: 1.4, pull_hint: 60.0}
+```
+
+---
+
+## 20. Meta-progression (v1.4)
+
+### The honest framing
+
+Any permanent power on a ranked board is an asymmetry: a day-1 player and a
+day-30 player are not competing on equal terms. The design cannot remove that,
+only make it **small, converging and visible**. Everything below follows from
+that, and the transparency rule (showing a player's meta tier next to their
+entry) is part of the design rather than a nicety.
+
+The counter-argument worth stating: **cosmetics-only meta has zero fairness
+cost.** If the leaderboard ever matters more than the progression, that is the
+fallback.
+
+### The shape
+
+- Points are earned from **ranked runs only**. Practice and archive earn nothing.
+- Points buy **purchases** in seven player-side stats.
+- Each purchase is **+0.25%** in that stat.
+- **Per-stat cap: 12 purchases (+3%).**
+- **Aggregate cap: +10%, hard.** Never more, whatever is spent.
+- **Respec is free**, so allocation is a decision rather than a commitment.
+
+Because per-stat cost escalates, spreading is cheaper than concentrating. Early
+players spread thin; only a well-stocked player can push two or three stats to
+their cap. That is the intended shape: the cap binds before mastery does.
+
+### The stats
+
+Weighted toward **utility**, because damage and HP compound with in-run upgrades
+and inflate deep-stage scores — the exact place an unfair edge would show.
+
+| Stat | Effect at cap | Why it is safe |
+|---|---|---|
+| Starting HP | +3% | Flat, does not compound |
+| Move speed | +3% | Utility; helps positioning, not damage |
+| Pickup radius | +3% | **Still bounded by the existing hard cap** |
+| Dash cooldown | −3% | Utility |
+| Starting XP | +3% toward level 2 | Front-loads one card, does not scale |
+| Rerolls | +1 at cap | Discrete, changes choice not power |
+| Damage | +3% | **Deliberately the weakest option** |
+
+### Cost and convergence
+
+Purchase *k* in a stat costs `12 × 1.19^(k−1)` points.
+
+| Power | Purchases | Points | New player | Strong player |
+|---|---|---|---|---|
+| 35% of cap | 14 | 184 | 7 days | 4 days |
+| 70% of cap | 28 | 444 | 16 days | 9 days |
+| 100% of cap | 42 | 813 | 30 days | 17 days |
+
+**Power finishes in about three weeks and then stops.** The infinite sink is
+cosmetic, not statistical — see section 22. That is a deliberate departure from
+"the last stretch takes months": with one ranked run per day, a months-long
+*power* tail and a hard +10% ceiling cannot both hold. Putting the long tail in
+cosmetics keeps the sink open forever without ever widening the gap.
+
+### Earning, and a trap in it
+
+```
+points = 24 + 3 × min(stage_reached, 8)      # ranked runs only
+```
+
+Scaling points by stage reached means **better players earn meta faster**, which
+works against convergence. Left uncapped (`8 + 6 × stage`) a strong player earns
+**2.8×** a newcomer's rate and pulls away. The flattened curve above holds it to
+**1.6×**, and the large flat base means a struggling player still converges.
+
+### Transparency
+
+The player's tier and total bonus appear on the main menu and the run-end
+screen, and beside leaderboard entries when Phase 4 lands. Hiding a known
+asymmetry would be worse than the asymmetry.
+
+---
+
+## 21. Meta determinism (v1.4) ⚠️
+
+### Player-side only. No exceptions.
+
+Meta upgrades may touch **only** the player's own stats. They may never
+influence drop rates, drop schedules, spawn counts, enemy rosters, boss
+assignment, or anything else feeding a precomputed seeded schedule.
+
+**There is no luck stat, and there will not be one.** This is the same trap that
+removed Greed's "+drop luck": the drop schedule is precomputed at stage entry, so
+anything that changed drop odds would make drops depend on the player's profile
+and forfeit the strongest guarantee in the design.
+
+The seven stats above are safe by construction — every one is a number the
+player carries, not a number the world is built from.
+
+### The save-file hazard
+
+Meta state lives in the player's save. A determinism run that read it would
+depend on **the tester's local profile**, so the same seed would verify
+differently on two machines — the exact failure the check exists to catch.
+
+So: a `--meta-profile=none|max` test hook overrides the save entirely, and the
+check runs **twice — once at zero, once at max** — asserting each is internally
+identical. It joins `TEST_HOOK_ARGS`, so a run using it can never be ranked.
+
+Note that zero and max legitimately produce *different* digests from each other:
+a stronger player kills more. What must hold is that each configuration is
+reproducible.
+
+---
+
+## 22. Records, cosmetics and titles (v1.4)
+
+**Personal bests** — best stage, best score, lifetime kills/runs/bosses, and a
+"NEW PERSONAL BEST" moment on the run-end screen. Free retention, zero fairness
+cost.
+
+**Cosmetics**, bought with the same points: arena palettes, player shapes,
+projectile trails. **Zero gameplay effect, enforced by keeping them out of the
+stat path entirely** — a cosmetic is a colour or a shape, never a number. This
+is where the long tail lives, and it can be endless precisely because it cannot
+tilt a board.
+
+Player shape is the one to watch: section 11 makes shape carry identity, so
+cosmetic shapes must stay visually distinct from every enemy silhouette.
+
+**Titles** for milestones ("Reached Stage 10", "30-Day Streak"), shown on the
+profile and beside leaderboard entries.
+
+---
+
+## 23. On seasonal resets — recommendation: **no**
+
+Not for this game, and specifically:
+
+- **The daily seed already is the reset.** Every day is a fresh, equal start.
+  Seasons solve staleness that a daily format has largely solved already.
+- **Accumulation is already capped** at +10% and converges in ~3 weeks. A wipe
+  would cap something that is bounded by construction.
+- **It punishes exactly the players who engaged most**, and buys back very
+  little fairness, because the asymmetry being reset is small by design.
+- **Operationally expensive** for a solo $1–5 title: season boundaries, archived
+  boards, one Steam leaderboard per season, and the comms around all of it.
+
+**If seasonal structure is wanted, run seasonal *leaderboards* and let meta
+persist.** Monthly boards give lapsed players the re-entry point without taking
+anything away, and they map cleanly onto per-month Steam leaderboards.
+
+---
+
+## 24. v1.4 rollout plan
+
+| Phase | Scope | Determinism work |
+|---|---|---|
+| **8a** | Meta profile persistence, point awards from ranked runs, seven stats, cost curve, caps, free respec, applied to the player at run start | `--meta-profile` hook; the check runs at zero **and** at max |
+| **8b** | Upgrade screen from the main menu: costs, caps, tier readout, respec, transparency | None |
+| **8c** | Records, lifetime stats, NEW PERSONAL BEST moment | None |
+| **8d** | Cosmetics and titles | Cosmetics must not reach the stat path |
+
+**Ordering:** 8a establishes what the rest displays. 8d is last because it is the
+only part with no gameplay effect, so it cannot mask a balance problem.
+
+### Definition of done, per sub-phase
+
+1. Determinism green at **both** meta extremes, including the negative control
+   and the ≥3-stage requirement.
+2. Twelve suites green.
+3. Every number in `balance.gd`.
+4. A real run played.
+
+---
+
+## 25. Data shapes (v1.4)
+
+```gdscript
+META_STATS = {
+  "hp":        {name: "Vitality",   stat: "meta_hp_mult",       per_buy: 0.0025, max_buys: 12},
+  "speed":     {name: "Fleetfoot",  stat: "meta_speed_mult",    per_buy: 0.0025, max_buys: 12},
+  "pickup":    {name: "Lodestone",  stat: "meta_pickup_mult",   per_buy: 0.0025, max_buys: 12},
+  "dash":      {name: "Reflex",     stat: "meta_dash_mult",     per_buy: -0.0025, max_buys: 12},
+  "xp":        {name: "Headstart",  stat: "meta_start_xp",      per_buy: 0.0025, max_buys: 12},
+  "reroll":    {name: "Foresight",  stat: "meta_rerolls",       per_buy: 0.0025, max_buys: 12},
+  "damage":    {name: "Edge",       stat: "meta_damage_mult",   per_buy: 0.0025, max_buys: 12},
+}
+META_COST_BASE = 12.0
+META_COST_GROWTH = 1.19
+META_AGGREGATE_CAP = 0.10        # hard ceiling on the sum of all bonuses
+META_POINTS_BASE = 24
+META_POINTS_PER_STAGE = 3
+META_POINTS_STAGE_CAP = 8        # flattens the veteran earning advantage
+
+COSMETICS = {
+  "palette_ember": {kind: "palette", cost: 400, ...},
+  "shape_delta":   {kind: "player_shape", cost: 600, ...},
+  "trail_spark":   {kind: "trail", cost: 250, ...},
+}
+TITLES = [
+  {id: "stage_10", name: "Deep Diver", condition: "best_stage >= 10"},
+  {id: "streak_30", name: "Devoted",   condition: "daily_streak >= 30"},
+]
 ```
