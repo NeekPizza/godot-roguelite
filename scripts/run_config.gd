@@ -24,12 +24,13 @@ const MODE_ARCHIVE := 2
 ## `--godmode --ranked` submit a score is a step too far for free.
 const TEST_HOOK_ARGS := [
 	"--godmode", "--auto-pick",
-	"--time-scale=", "--max-seconds=", "--scripted-input=",
+	"--time-scale=", "--max-seconds=", "--scripted-input=", "--boss-hp-mult=",
 ]
 
 const AUTO_START_ARGS := [
 	"--ranked", "--practice", "--godmode", "--auto-pick",
 	"--date=", "--max-seconds=", "--time-scale=", "--scripted-input=",
+	"--boss-hp-mult=",
 ]
 
 var date_string := ""

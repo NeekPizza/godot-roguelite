@@ -96,6 +96,17 @@ static func make_daily_rng(date_string: String) -> RandomNumberGenerator:
 	return rng
 
 
+## Per-stage streams (v1.3). Keyed by STAGE INDEX, never a single running
+## stream — that is what contains divergence. How long a player takes to kill
+## the Stage 3 boss is player-dependent, and a shared stream would let that
+## reshape Stage 4 for them alone.
+static func make_stage_rng(date_string: String, stage: int,
+		purpose: String) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash_string("%s#stage#%d#%s" % [date_string, stage, purpose])
+	return rng
+
+
 ## Ground drops. Consumed only while BUILDING the schedule at run start, never
 ## during play, so no player action can advance it.
 static func make_drops_rng(date_string: String) -> RandomNumberGenerator:

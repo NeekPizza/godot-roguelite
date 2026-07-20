@@ -1110,10 +1110,10 @@ and each extends the digest with what it adds.
 
 | Phase | Scope | Determinism work |
 |---|---|---|
-| **7a** | Stage state machine (Combat → Boss → Clear → Portal), per-stage clocks, per-stage spawn/drop/roster streams, boss at end of combat, spawns stop during boss, stage scaling multipliers | The whole per-stage rekeying. New `--boss-hp-mult` test hook so the check can cross stages. Digest gains stage index, phase, clock, stream states. |
-| **7b** | Portal entity, death shockwave, calm beat, stage transition, STAGE COMPLETE card with the escalation readout | Portal position must feed nothing; player re-enters at arena centre. |
-| **7c** | Per-stage palettes (arena only) and per-stage enemy rosters | Roster from the stage stream; enemy colours deliberately unchanged. |
-| **7d** | Boss enrage, stage-reached tracking in saves / game-over / local table, GDD and scope-ledger updates | Enrage is time-driven, consumes no RNG. |
+| **7a** | **DONE.** Stage state machine (Combat → Boss → Clear → Portal), per-stage clocks, per-stage spawn/drop/roster streams, boss at end of combat, spawns stop during boss, stage scaling multipliers | The whole per-stage rekeying. New `--boss-hp-mult` test hook so the check can cross stages. Digest gains stage index, phase, clock, stream states. |
+| **7b** | **DONE.** Portal entity, death shockwave, calm beat, stage transition, STAGE COMPLETE card with the escalation readout | Portal position must feed nothing; player re-enters at arena centre. |
+| **7c** | **DONE.** Per-stage palettes (arena only) and per-stage enemy rosters | Roster from the stage stream; enemy colours deliberately unchanged. |
+| **7d** | **DONE.** Boss enrage, stage-reached tracking in saves / game-over / local table, GDD and scope-ledger updates | Enrage is time-driven, consumes no RNG. |
 
 **Ordering is forced:** 7a establishes the clocks everything else keys off, and
 the portal (7b) has nothing to connect until stages exist. Palettes (7c) are

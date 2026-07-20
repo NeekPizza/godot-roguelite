@@ -424,6 +424,54 @@ text = "QUIT TO MENU"
 
 [node name="SettingsPanel" parent="PauseLayer/Root" instance=ExtResource("5")]
 
+[node name="StageCardLayer" type="CanvasLayer" parent="."]
+process_mode = 3
+
+[node name="Root" type="Control" parent="StageCardLayer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="StageCardLayer/Root"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.9)
+
+[node name="Center" type="CenterContainer" parent="StageCardLayer/Root"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="StageCardLayer/Root/Center"]
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="StageCardLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 40
+horizontal_alignment = 1
+text = "STAGE 1 COMPLETE"
+
+[node name="Subtitle" type="Label" parent="StageCardLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+text = "What gets harder next"
+
+[node name="Body" type="Label" parent="StageCardLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.82, 0.25, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "-"
+
+[node name="Hint" type="Label" parent="StageCardLayer/Root/Center/Panel"]
+theme_override_colors/font_color = Color(0.6, 0.68, 0.82, 1)
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+text = "Collect what you want, then step into the portal"
+
+[node name="Continue" type="Button" parent="StageCardLayer/Root/Center/Panel"]
+custom_minimum_size = Vector2(320, 46)
+theme_override_font_sizes/font_size = 20
+text = "CONTINUE"
+
 [node name="GameOverLayer" type="CanvasLayer" parent="."]
 process_mode = 3
 

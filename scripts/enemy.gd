@@ -38,14 +38,15 @@ func _ready() -> void:
 	add_to_group("enemy")
 
 
-func setup(new_type_id: String, hp_multiplier: float) -> void:
+func setup(new_type_id: String, hp_multiplier: float,
+		damage_multiplier := 1.0) -> void:
 	type_id = new_type_id
 	stats = Balance.ENEMY_TYPES[type_id]
 
 	max_hp = stats["hp"] * hp_multiplier
 	hp = max_hp
 	move_speed = stats["speed"]
-	contact_damage = stats["damage"]
+	contact_damage = stats["damage"] * damage_multiplier
 	radius = stats["radius"]
 
 	# A fresh shape per instance. Shapes are Resources, so reusing the one from

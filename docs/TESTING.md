@@ -19,6 +19,7 @@ upgrade cards, which makes automated checks impossible otherwise.
 | `--max-seconds=N` | Ends the run at N elapsed seconds. Purely a harness lever: the game itself is endless and has no time limit. |
 | `--auto-pick` | Auto-selects card 0 at every level-up. Without it, a headless run pauses forever at the first level-up waiting for input that will never arrive. |
 | `--open=confirm\|archive\|settings` | Menu only: jump straight to an overlay. UI states are otherwise reachable only by clicking, which makes them impossible to screenshot or smoke-test unattended. |
+| `--boss-hp-mult=X` | Scales boss HP. The determinism check needs to CROSS stages, and a scripted player cannot out-damage scaling boss HP; this lets it. In `TEST_HOOK_ARGS`, so a run using it can never be ranked. |
 | `--godmode` | Player takes no damage. The only way to exercise the late-tier enemy types unattended — an idle run dies in tier 1-2 and never sees Tanks, Shooters or Splitters spawn. |
 | `--quit-on-end` | Releases audio then calls `get_tree().quit()` when the run finishes. Prefer this over `--quit-after` in CI — it exits on a run boundary rather than mid-frame. |
 | `--date=YYYY-MM-DD` | Play a past seed as unranked **archive practice**. Never consumes a ranked attempt. |
@@ -119,6 +120,7 @@ godot --headless tests/drops_test.tscn                               # drop sche
 godot --headless tests/enemies_test.tscn                             # new enemies, shield arc, elites, roster
 godot --headless tests/boss_test.tscn                                # archetypes, telegraph floor, escalation
 godot --headless tests/temp_weapon_test.tscn                         # temp drops add to the loadout
+godot --headless tests/stages_test.tscn                              # stage derivation, rosters, palettes
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```

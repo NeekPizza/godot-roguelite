@@ -24,10 +24,20 @@ static func pick(roll: float) -> String:
 	return Balance.DROPS.keys()[0]
 
 
+## Per-stage schedule (v1.3), built when the player ENTERS the stage. Keyed on
+## the stage index so Stage 4's drops are the same for everyone regardless of
+## when they arrive.
+static func build_stage_schedule(date_string: String, stage: int) -> Array:
+	return _build(GameSeed.make_stage_rng(date_string, stage, "drops"))
+
+
 ## [{time, position, id}, ...] in ascending time. Absolute world positions:
 ## never relative to the player, who is somewhere different for everyone.
 static func build_schedule(date_string: String) -> Array:
-	var rng := GameSeed.make_drops_rng(date_string)
+	return _build(GameSeed.make_drops_rng(date_string))
+
+
+static func _build(rng: RandomNumberGenerator) -> Array:
 	var bounds := Arena.rect()
 	var margin := Balance.DROP_EDGE_MARGIN
 

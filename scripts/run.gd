@@ -13,8 +13,11 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const XP_GEM_SCENE := preload("res://scenes/xp_gem.tscn")
 const BOSS_SCENE := preload("res://scenes/boss.tscn")
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
+const PORTAL_SCENE := preload("res://scenes/portal.tscn")
 
 enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
+## Within RUNNING, the stage runs through these in order.
+enum StagePhase { COMBAT, BOSS, CLEAR, PORTAL }
 
 @onready var _player: Area2D = $Player
 @onready var _enemies: Node2D = $Enemies
@@ -23,6 +26,7 @@ enum State { RUNNING, LEVEL_UP, PAUSED, OVER }
 @onready var _gems: Node2D = $Gems
 @onready var _pickups: Node2D = $Pickups
 @onready var _fx: Node2D = $Fx
+@onready var _world_bounds: Node2D = $WorldBounds
 var _weapons: Node2D
 
 @onready var _timer_label: Label = $HUD/Root/TimerLabel
@@ -48,6 +52,10 @@ var _weapons: Node2D
 @onready var _pause_settings: Button = $PauseLayer/Root/Center/Panel/Settings
 @onready var _pause_menu: Button = $PauseLayer/Root/Center/Panel/Menu
 @onready var _pause_settings_panel: Control = $PauseLayer/Root/SettingsPanel
+@onready var _stage_card_layer: CanvasLayer = $StageCardLayer
+@onready var _stage_card_title: Label = $StageCardLayer/Root/Center/Panel/Title
+@onready var _stage_card_body: Label = $StageCardLayer/Root/Center/Panel/Body
+@onready var _stage_card_button: Button = $StageCardLayer/Root/Center/Panel/Continue
 @onready var _gameover_layer: CanvasLayer = $GameOverLayer
 @onready var _gameover_label: Label = $GameOverLayer/Root/Center/Breakdown
 
@@ -85,6 +93,16 @@ var _elites_spawned := 0
 var _roster: Array = []
 var _boss_log: Array = []
 
+# --- Stages (7a) ---
+var _stage := 1
+var _stage_elapsed := 0.0          # resets on stage entry; drives all schedules
+var _stage_phase := StagePhase.COMBAT
+var _stage_clear_timer := 0.0
+var _boss_alive := false
+var _stages_cleared := 0
+var _boss_hp_mult := 1.0           # test hook only
+var _boss_death_position := Vector2.ZERO
+
 # --- Combo (6c) ---
 var _combo_chain := 0.0
 var _combo_idle := 0.0        # seconds since the last kill
@@ -115,6 +133,12 @@ func _parse_test_args() -> void:
 			# Clean engine shutdown when the run finishes, instead of the abrupt
 			# --quit-after frame kill. Also the right exit path for CI.
 			_quit_on_end = true
+		elif arg.begins_with("--boss-hp-mult="):
+			# Test-only: the determinism check has to CROSS stages, and a
+			# scripted player cannot out-damage scaling boss HP. Listed in
+			# RunConfig.TEST_HOOK_ARGS, so a run using it can never be ranked.
+			_boss_hp_mult = float(arg.split("=")[1])
+			print("[run] test override: boss-hp-mult=%.3f" % _boss_hp_mult)
 		elif arg == "--godmode":
 			# Lets an unattended run survive the whole difficulty ramp, which is
 			# the only way to exercise the late-tier enemy types headlessly.
@@ -163,13 +187,6 @@ func _ready() -> void:
 
 	# The entire run's drops, decided now: what, when, and at which absolute
 	# world position. Nothing is rolled during play.
-	_roster = Daily.enemy_roster(_date_string)
-	print("[run] roster today: %s" % ", ".join(PackedStringArray(_roster)))
-
-	_drop_schedule = Drops.build_schedule(_date_string)
-	print("[run] drop schedule: %d entries, first at %.1fs" % [
-		_drop_schedule.size(), float(_drop_schedule[0]["time"])])
-
 	_weapons = _player.get_node("WeaponSystem")
 	_weapons.player = _player
 	_weapons.projectile_parent = _projectiles
@@ -183,6 +200,7 @@ func _ready() -> void:
 
 	Music.start()
 
+	_stage_card_button.pressed.connect(_dismiss_stage_card)
 	_reroll_button.pressed.connect(_on_reroll_pressed)
 	_banish_button.pressed.connect(_on_banish_pressed)
 
@@ -194,8 +212,11 @@ func _ready() -> void:
 
 	_apply_bar_colours()
 
+	_enter_stage(1)
+
 	_levelup_layer.hide()
 	_pause_layer.hide()
+	_stage_card_layer.hide()
 	_pause_settings_panel.hide()
 	_gameover_layer.hide()
 	_hp_bar.max_value = _player.max_hp
@@ -214,11 +235,10 @@ func _physics_process(delta: float) -> void:
 		_end_run()
 		return
 
+	_stage_elapsed += step
 	_tick_combo(step)
 	_tick_buffs(step)
-	_check_drop_schedule()
-	_check_boss_schedule()
-	_schedule_waves(step)
+	_tick_stage(step)
 	_update_hud()
 
 
@@ -300,8 +320,11 @@ func _refresh_buff_list() -> void:
 # --- Drops -------------------------------------------------------------------
 
 func _check_drop_schedule() -> void:
+	# Against the STAGE clock, not the run clock: the schedule is rebuilt per
+	# stage with times relative to entry, so comparing it to absolute elapsed
+	# dumped every remaining entry at once from stage 2 onward.
 	while _next_drop < _drop_schedule.size() \
-			and _elapsed >= float(_drop_schedule[_next_drop]["time"]):
+			and _stage_elapsed >= float(_drop_schedule[_next_drop]["time"]):
 		var entry: Dictionary = _drop_schedule[_next_drop]
 		_pickups_scheduled += 1
 		_spawn_pickup(entry["id"], entry["position"])
@@ -492,17 +515,145 @@ func _to_menu() -> void:
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 
+# --- Stages ------------------------------------------------------------------
+
+## Everything a stage owns is rebuilt here: clocks, streams, schedules, roster,
+## palette, arena. Called on run start and on every portal entry.
+func _enter_stage(stage: int) -> void:
+	_stage = stage
+	_stage_elapsed = 0.0
+	_spawn_timer = 0.0
+	_stage_phase = StagePhase.COMBAT
+	_boss_alive = false
+	_next_drop = 0
+
+	# Per-stage streams, keyed by stage index. This is what contains
+	# divergence: how long the player took on the last boss is
+	# player-dependent, and a shared running stream would let that reshape
+	# this stage for them alone.
+	_spawn_rng = GameSeed.make_stage_rng(_date_string, stage, "spawn")
+	_roster = Stages.roster(_date_string, stage)
+	_drop_schedule = Drops.build_stage_schedule(_date_string, stage)
+
+	_clear_field()
+	# Always the arena centre — NEVER a position derived from the portal, which
+	# is player-dependent and must not influence anything.
+	_player.position = Arena.center()
+	_world_bounds.apply_palette(Stages.palette(stage))
+
+	print("[run] === STAGE %d === roster=%s hp=x%.2f dmg=x%.2f score=x%.2f" % [
+		stage, ", ".join(PackedStringArray(_roster)),
+		Stages.hp_mult(stage), Stages.damage_mult(stage), Stages.score_mult(stage)])
+
+
+## Remove everything that belongs to the previous stage. The player, their
+## weapons and their levels persist; the arena does not.
+func _clear_field() -> void:
+	for container in [_enemies, _projectiles, _enemy_shots, _gems, _pickups]:
+		for child in container.get_children():
+			child.queue_free()
+	for portal in get_tree().get_nodes_in_group("portal"):
+		portal.queue_free()
+
+
+func _tick_stage(step: float) -> void:
+	match _stage_phase:
+		StagePhase.COMBAT:
+			_check_drop_schedule()
+			_schedule_waves(step)
+			if _stage_elapsed >= Stages.combat_duration(_stage):
+				_begin_boss()
+		StagePhase.BOSS:
+			# Regular spawns STOP during the boss fight. Focus, and it also
+			# fixes the stage's spawn-draw count so "identical Stage N" is
+			# exact rather than merely contained.
+			_check_drop_schedule()
+		StagePhase.CLEAR:
+			_stage_clear_timer -= step
+			if _stage_clear_timer <= 0.0:
+				_show_stage_card()
+		StagePhase.PORTAL:
+			pass
+
+
+func _begin_boss() -> void:
+	_stage_phase = StagePhase.BOSS
+	_boss_alive = true
+	# Position from the stage spawn stream at this fixed moment.
+	var edge := _spawn_rng.randi_range(0, 3)
+	var along := _spawn_rng.randf()
+	_spawn_boss(_stage, Arena.edge_position(edge, along))
+
+
+## Boss down: clear the field and give the player a real breather. The run has
+## no other breathing point.
+func _begin_stage_clear() -> void:
+	_stage_phase = StagePhase.CLEAR
+	_stage_clear_timer = Balance.STAGE_CALM_DURATION
+	_stages_cleared += 1
+
+	# The shockwave awards NOTHING — no score, no drops, no kill handlers. It
+	# is a removal, which also closes the "pile up trash, then kill the boss for
+	# a free screen-clear" exploit.
+	for enemy in _enemies.get_children():
+		if is_instance_valid(enemy) and not enemy.is_in_group("boss"):
+			enemy.queue_free()
+	for shot in _enemy_shots.get_children():
+		shot.queue_free()
+	_fx.add_shake(Balance.SHAKE_ON_BOSS_KILL)
+
+
+func _show_stage_card() -> void:
+	_stage_phase = StagePhase.PORTAL
+	var next_stage := _stage + 1
+	_stage_card_title.text = "STAGE %d COMPLETE" % _stage
+	_stage_card_body.text = "\n".join(PackedStringArray(
+		Stages.escalation_lines(next_stage, _roster, _date_string)))
+	_spawn_portal(next_stage)
+
+	# Unattended runs step through on their own. Skipping the walk is sound:
+	# the portal's position feeds nothing, so entering it early changes no
+	# seeded state — only when the next stage's clock starts.
+	if _auto_pick:
+		_dismiss_stage_card()
+		_on_portal_entered.call_deferred()
+		return
+
+	_stage_card_layer.show()
+	_stage_card_button.grab_focus()
+	get_tree().paused = true
+
+
+func _dismiss_stage_card() -> void:
+	_stage_card_layer.hide()
+	get_tree().paused = false
+
+
+func _spawn_portal(next_stage: int) -> void:
+	var portal := PORTAL_SCENE.instantiate()
+	portal.position = _boss_death_position
+	portal.setup(Stages.palette(next_stage)["accent"])
+	portal.entered.connect(_on_portal_entered)
+	_pickups.add_child.call_deferred(portal)
+
+
+func _on_portal_entered() -> void:
+	_enter_stage(_stage + 1)
+
+
 # --- Waves -------------------------------------------------------------------
 
 func _schedule_waves(delta: float) -> void:
 	_spawn_timer -= delta
 	if _spawn_timer > 0.0:
 		return
-	_spawn_timer += Difficulty.spawn_interval(_elapsed)
+	_spawn_timer += maxf(Balance.STAGE_INTERVAL_FLOOR,
+		Difficulty.spawn_interval(_stage_elapsed) * Stages.interval_mult(_stage))
 
-	var weights := Difficulty.type_weights_for(_elapsed, _roster)
-	var hp_multiplier := Difficulty.hp_multiplier(_elapsed)
-	for i in Difficulty.spawn_count(_elapsed):
+	var weights := Difficulty.stage_type_weights(_stage, _stage_elapsed, _roster)
+	var hp_multiplier := Difficulty.hp_multiplier(_stage_elapsed) * Stages.hp_mult(_stage)
+	var damage_multiplier := Stages.damage_mult(_stage)
+	for i in Difficulty.spawn_count(_stage_elapsed) + Stages.count_bonus(_stage):
 		# Draw from spawn_rng UNCONDITIONALLY, before the cap check, and always
 		# draw exactly three values regardless of tier.
 		#
@@ -523,7 +674,8 @@ func _schedule_waves(delta: float) -> void:
 			continue
 		_spawn_enemy(Difficulty.pick_type(weights, roll),
 			Arena.edge_position(edge, along), hp_multiplier,
-			elite_roll < Balance.ELITE_CHANCE, Drops.pick(drop_roll))
+			elite_roll < Balance.ELITE_CHANCE, Drops.pick(drop_roll),
+			damage_multiplier)
 
 
 ## Bosses arrive on a FIXED time schedule (difficulty.gd), never a player-driven
@@ -548,7 +700,7 @@ func _spawn_boss(boss_index: int, at: Vector2) -> void:
 
 	var boss := BOSS_SCENE.instantiate()
 	boss.position = at
-	boss.setup(boss_index, archetype, drop_id)
+	boss.setup(boss_index, archetype, drop_id, _boss_hp_mult)
 	boss.shot_parent = _enemy_shots
 	boss.killed.connect(_on_boss_killed)
 	_enemies.add_child(boss)
@@ -560,11 +712,11 @@ func _spawn_boss(boss_index: int, at: Vector2) -> void:
 
 
 func _spawn_enemy(type_id: String, at: Vector2, hp_multiplier: float,
-		elite := false, drop_id := "") -> void:
+		elite := false, drop_id := "", damage_multiplier := 1.0) -> void:
 	_type_counts[type_id] = _type_counts.get(type_id, 0) + 1
 	var enemy := ENEMY_SCENE.instantiate()
 	enemy.position = at
-	enemy.setup(type_id, hp_multiplier)
+	enemy.setup(type_id, hp_multiplier, damage_multiplier)
 	enemy.spawn_ordinal = _spawn_ordinal
 	_spawn_ordinal += 1
 	if elite:
@@ -741,7 +893,8 @@ func _score() -> int:
 func _on_enemy_killed(enemy: Area2D) -> void:
 	_kills += 1
 	_register_combo_kill()
-	_kill_score += int(round(float(enemy.score_value()) * combo_multiplier()))
+	_kill_score += int(round(float(enemy.score_value()) * combo_multiplier()
+		* Stages.score_mult(_stage)))
 
 	var gem := XP_GEM_SCENE.instantiate()
 	gem.position = enemy.position
@@ -786,8 +939,13 @@ func _split(parent_enemy: Area2D) -> void:
 ## Killing a boss does NOT end the run — it is a pace break and a depth marker.
 func _on_boss_killed(boss: Area2D) -> void:
 	_bosses_killed += 1
+	_boss_alive = false
+	# Remembered for the portal. Player-dependent, and therefore allowed to
+	# influence PRESENTATION only — never any seeded schedule.
+	_boss_death_position = boss.position
 	_register_combo_kill()
-	_kill_score += int(round(float(boss.score_value) * combo_multiplier()))
+	_kill_score += int(round(float(boss.score_value) * combo_multiplier()
+		* Stages.score_mult(_stage)))
 
 	# Guaranteed XP at fixed offsets, so the payout cannot vary between players.
 	for i in Balance.BOSS_GEM_COUNT:
@@ -807,6 +965,7 @@ func _on_boss_killed(boss: Area2D) -> void:
 		Balance.PARTICLES_ON_BOSS_KILL, Balance.PARTICLE_SPEED_BOSS)
 	_fx.add_shake(Balance.SHAKE_ON_BOSS_KILL)
 	Sfx.play("boss_death")
+	_begin_stage_clear()
 	print("[run] boss %d down at %s (+%d score)" % [
 		boss.index, _format_time(_elapsed), boss.score_value])
 
@@ -829,8 +988,8 @@ func _end_run() -> void:
 	get_tree().paused = true
 
 	_record_result()
-	_gameover_label.text = "YOU DIED\n\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to replay   ·   ESC for menu" % [
-		_format_time(_elapsed), _score(),
+	_gameover_label.text = "YOU DIED\n\nREACHED  STAGE %d\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to replay   ·   ESC for menu" % [
+		_stage, _format_time(_elapsed), _score(),
 		_kills, _kill_score,
 		_format_time(_elapsed), Score.PER_SECOND, int(_elapsed) * Score.PER_SECOND,
 		_xp_collected, Score.PER_XP, _xp_collected * Score.PER_XP,
@@ -843,8 +1002,8 @@ func _end_run() -> void:
 		_quit_cleanly.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
 	print("[digest] %s" % _state_digest())
-	print("[run] over mode=%s date=%s time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
-		RunConfig.mode_name(), _date_string,
+	print("[run] over mode=%s date=%s stage=%d time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
+		RunConfig.mode_name(), _date_string, _stage,
 		_format_time(_elapsed), _score(), _kills, _xp_collected, _level,
 		_bosses_killed, Score.is_plausible(_score())])
 
@@ -857,6 +1016,9 @@ func _record_result() -> void:
 		"date": _date_string,
 		"ranked": _ranked,
 		"score": final_score,
+		# Stored alongside score so it is ready for the Steam submission's
+		# detail field when Phase 4 lands.
+		"stage": _stage,
 		"kills": _kills,
 		"seconds": int(_elapsed),
 		"level": _level,
@@ -873,8 +1035,9 @@ func _score_table_text() -> String:
 	var lines := PackedStringArray(["BEST ON %s" % _date_string])
 	for i in rows.size():
 		var row: Dictionary = rows[i]
-		lines.append("%d.  %7d   %s   lv%d   %s" % [
+		lines.append("%d.  %7d   stage %d   %s   lv%d   %s" % [
 			i + 1, int(row.get("score", 0)),
+			int(row.get("stage", 1)),
 			_format_time(float(row.get("seconds", 0))),
 			int(row.get("level", 1)),
 			"ranked" if bool(row.get("ranked", false)) else "practice",
@@ -895,13 +1058,14 @@ func _state_digest() -> String:
 		_bosses_killed, _next_boss,
 		_enemies.get_child_count(), _gems.get_child_count(),
 		JSON.stringify(_type_counts),
-	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d dropped(sched/elite/boss)=%d/%d/%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s" % [
+	] + " slots=%d weapons=%s passives=%s banished=%s rerolls=%d banishes=%d combo=%.3f drops_taken=%d dropped(sched/elite/boss)=%d/%d/%d scheduled=%d schedule=%s roster=%s elites=%d bosses_seen=%s stage=%d phase=%d stage_t=%.2f cleared=%d" % [
 		_weapon_slots, _weapons.digest(), JSON.stringify(_stacks),
 		JSON.stringify(_banished), _rerolls_left, _banishes_left, _combo_chain,
 		_drops_taken, _pickups_scheduled, _pickups_elite, _pickups_boss,
 		_next_drop, Drops.schedule_digest(_drop_schedule),
 		",".join(PackedStringArray(_roster)), _elites_spawned,
 		",".join(PackedStringArray(_boss_log)),
+		_stage, _stage_phase, _stage_elapsed, _stages_cleared,
 	]
 
 
@@ -922,7 +1086,8 @@ func _update_hud() -> void:
 			clampf((multiplier - 1.0) / maxf(0.001, Balance.COMBO_MAX_BONUS), 0.0, 1.0))
 	else:
 		_combo_label.text = ""
-	_level_label.text = "LV %d   %s  %s" % [_level, RunConfig.mode_name(), _date_string]
+	_level_label.text = "LV %d   ·   STAGE %d   %s  %s" % [
+		_level, _stage, RunConfig.mode_name(), _date_string]
 	_refresh_buff_list()
 	_weapons_label.text = "%s     [%d/%d slots]" % [
 		_weapons.summary(), _weapons.slots_used(), _weapon_slots]

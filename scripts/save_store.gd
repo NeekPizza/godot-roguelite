@@ -68,7 +68,7 @@ func load_from_disk() -> void:
 ## written as 10114 reloads as 10114.0. Display paths coerce anyway, but Steam
 ## leaderboards take an int32 and float drift is not something to discover at
 ## submission time. Coerce once, here, at the boundary.
-const _INT_FIELDS := ["score", "kills", "seconds", "level", "bosses"]
+const _INT_FIELDS := ["score", "kills", "seconds", "level", "bosses", "stage"]
 
 
 func _normalise_numbers() -> void:
@@ -160,6 +160,15 @@ func top_overall(limit: int) -> Array:
 	var all: Array = _data["scores"].duplicate()
 	all.sort_custom(func(a, b): return int(a.get("score", 0)) > int(b.get("score", 0)))
 	return all.slice(0, limit)
+
+
+## Deepest stage reached on a seed, shown alongside score.
+func best_stage_for_date(date_string: String) -> int:
+	var deepest := 0
+	for entry in _data["scores"]:
+		if entry.get("date", "") == date_string:
+			deepest = maxi(deepest, int(entry.get("stage", 1)))
+	return deepest
 
 
 func best_score_for_date(date_string: String) -> int:

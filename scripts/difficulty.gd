@@ -30,6 +30,32 @@ static func _ramp(elapsed: float, start: float, duration: float) -> float:
 	return clampf((elapsed - start) / duration, 0.0, 1.0)
 
 
+## Composition for a stage (v1.3).
+##
+## The old table gated types behind ABSOLUTE unlock times (shooters at 4:00,
+## tanks at 6:00). Stages reset the clock every 150 s, so nothing past Swarmer
+## ever appeared — a stage-6 roster of seven types still spawned only Drifters.
+##
+## Now the stage's roster decides WHAT can appear and this decides the mix:
+## every roster type is live from the start of the stage, eased in over the
+## first few seconds, with Drifters ceding share as stages go deeper.
+static func stage_type_weights(stage: int, stage_elapsed: float,
+		roster: Array) -> Array:
+	var ease := clampf(stage_elapsed / Balance.STAGE_MIX_EASE, 0.25, 1.0)
+	var table := []
+	for entry in Balance.TYPE_SCHEDULE_BASE:
+		var id: String = entry["id"]
+		if not roster.has(id):
+			table.append([id, 0.0])          # keep the slot so draw counts hold
+			continue
+		if id == "drifter":
+			table.append([id, Balance.DRIFTER_WEIGHT_FLOOR
+				+ Balance.DRIFTER_WEIGHT_HEAD * exp(-float(stage - 1) / 2.0)])
+		else:
+			table.append([id, float(entry["weight"]) * ease])
+	return table
+
+
 ## Restricted to today's roster. Types not active today keep their entry at a
 ## zero weight rather than being removed, so a spawn consumes exactly the same
 ## number of draws whatever the roster happens to be.

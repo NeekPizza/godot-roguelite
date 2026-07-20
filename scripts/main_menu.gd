@@ -98,7 +98,8 @@ func _refresh() -> void:
 	lines.append(Daily.summary(today))
 	var best := SaveStore.best_score_for_date(today)
 	if best > 0:
-		lines.append("Best on today's seed: %d" % best)
+		lines.append("Best on today's seed: %d  (stage %d)" % [
+			best, SaveStore.best_stage_for_date(today)])
 	_status.text = "\n".join(lines)
 
 	_ranked_button.disabled = not available

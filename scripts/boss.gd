@@ -40,6 +40,10 @@ var _phase_timer := 0.0
 var _aim := Vector2.RIGHT
 var _dash_left := 0.0
 
+# --- Enrage (7d): a boss the player cannot kill must not become a camp ---
+var _alive_time := 0.0
+var enrage_steps := 0
+
 
 func _ready() -> void:
 	# Same group as regular enemies so targeting, projectile collision and
@@ -48,14 +52,15 @@ func _ready() -> void:
 	add_to_group("boss")
 
 
-func setup(boss_index: int, archetype_id: String, boss_drop: String) -> void:
+func setup(boss_index: int, archetype_id: String, boss_drop: String,
+		hp_scale := 1.0) -> void:
 	index = boss_index
 	archetype = archetype_id
 	drop_id = boss_drop
 	_config = Balance.BOSS_ARCHETYPES[archetype]
 	_pattern = Difficulty.boss_pattern(_config["pattern"], index)
 
-	max_hp = Difficulty.boss_hp(index)
+	max_hp = Difficulty.boss_hp(index) * hp_scale
 	hp = max_hp
 	contact_damage = Difficulty.boss_damage(index)
 	move_speed = Difficulty.boss_speed(index) * float(_config["speed_mult"])
@@ -80,6 +85,7 @@ func push_away_from(_origin: Vector2, _distance: float) -> void:
 func _physics_process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta)
 	_spin += delta * 0.6
+	_tick_enrage(delta)
 
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player")
@@ -90,6 +96,23 @@ func _physics_process(delta: float) -> void:
 	_move(delta)
 	position = Arena.clamp_position(position, Balance.BOSS_RADIUS)
 	queue_redraw()
+
+
+## Escalates while the boss lives. Time-driven and RNG-free, so it stays
+## deterministic; the telegraph floor still applies, so enrage makes stalling
+## lethal without making the fight unreadable.
+func _tick_enrage(delta: float) -> void:
+	_alive_time += delta
+	if _alive_time < Balance.ENRAGE_DELAY:
+		return
+	var due := mini(Balance.ENRAGE_MAX_STEPS,
+		1 + int((_alive_time - Balance.ENRAGE_DELAY) / Balance.ENRAGE_STEP))
+	while enrage_steps < due:
+		enrage_steps += 1
+		contact_damage *= Balance.ENRAGE_DAMAGE_MULT
+		_pattern["cadence"] = maxf(Balance.BOSS_CADENCE_MIN,
+			float(_pattern["cadence"]) * Balance.ENRAGE_CADENCE_MULT)
+		_pattern["speed"] = float(_pattern["speed"]) * Balance.ENRAGE_SPEED_MULT
 
 
 func _move(delta: float) -> void:
@@ -181,6 +204,10 @@ func _draw() -> void:
 	var radius := Balance.BOSS_RADIUS
 	var base_colour := colour()
 	var body := Color.WHITE if _flash > 0.0 else base_colour
+	if enrage_steps > 0 and _flash <= 0.0:
+		# Visibly reddens one step at a time, so the escalation is legible.
+		body = body.lerp(Balance.ENRAGE_TINT,
+			clampf(float(enrage_steps) * 0.12, 0.0, 0.75))
 
 	_draw_shape(radius, body)
 	draw_arc(Vector2.ZERO, radius + 14.0, 0.0, TAU, 40, Color(base_colour, 0.30), 3.0)

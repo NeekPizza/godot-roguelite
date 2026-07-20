@@ -389,6 +389,24 @@ const DRIFTER_WEIGHT_HEAD := 0.55
 const DRIFTER_WEIGHT_TAU := 400.0
 ## Order is FIXED and every entry is always returned, including zero-weight
 ## ones, so a spawn consumes the same number of RNG draws at any elapsed time.
+## Relative spawn weights once a type is in the stage roster. Unlock TIMES are
+## gone: which types can appear is now the stage roster's job (v1.3).
+const TYPE_SCHEDULE_BASE := [
+	{"id": "drifter",  "weight": 1.00},
+	{"id": "swarmer",  "weight": 1.40},
+	## Deliberately the rarest mid-tier type: at higher weights the late game
+	## reads as a wall of incoming fire.
+	{"id": "shooter",  "weight": 0.42},
+	{"id": "tank",     "weight": 1.00},
+	{"id": "splitter", "weight": 0.90},
+	{"id": "dasher",   "weight": 0.75},
+	{"id": "weaver",   "weight": 0.70},
+	{"id": "bomber",   "weight": 0.55},
+	{"id": "shielded", "weight": 0.60},
+]
+## Seconds over which a new stage's mix eases in from a Drifter-led opening.
+const STAGE_MIX_EASE := 12.0
+
 const TYPE_SCHEDULE := [
 	{"id": "swarmer",  "unlock": 120.0, "ramp": 180.0, "weight": 1.40},
 	# Deliberately the rarest mid-tier type (~10% of spawns): at higher weights
@@ -470,6 +488,63 @@ const BOSS_COLOR := Color(1.0, 0.30, 0.55)
 const BOSS_GEM_COUNT := 12
 const BOSS_GEM_VALUE := 3
 const BOSS_GEM_RADIUS := 62.0
+
+# =============================================================================
+# STAGES (7a) — every value here is applied (N-1) times, so the ladder is
+# endless without a hand-authored list.
+# =============================================================================
+const STAGE_COMBAT_DURATION := 150.0    # seconds of fighting before the boss
+const STAGE_HP_MULT := 1.40
+const STAGE_DAMAGE_MULT := 1.20
+const STAGE_INTERVAL_MULT := 0.90
+const STAGE_INTERVAL_FLOOR := 0.12
+const STAGE_COUNT_BONUS_EVERY := 2      # +1 enemy per spawn every N stages
+## Depth has to pay, or the optimal play is farming a shallow stage forever.
+const STAGE_SCORE_MULT := 1.20
+const STAGE_ROSTER_PICK_BASE := 4       # roster widens as you go deeper
+const STAGE_ROSTER_PICK_EVERY := 3
+
+## Recolours the ARENA only — background, grid, walls, portal.
+##
+## Enemy colours deliberately do NOT change per stage: section 11 makes shape
+## carry identity, and re-hueing enemies every stage would discard the
+## recognition a player has built up exactly as the screen gets busiest.
+const STAGE_PALETTES := [
+	{"background": Color(0.043, 0.047, 0.078), "grid": Color(0.30, 0.85, 1.0, 0.055),
+	 "wall": Color(0.35, 0.90, 1.0, 0.55), "accent": Color(0.35, 0.90, 1.0)},
+	{"background": Color(0.075, 0.035, 0.070), "grid": Color(1.0, 0.45, 0.85, 0.055),
+	 "wall": Color(1.0, 0.45, 0.85, 0.55), "accent": Color(1.0, 0.45, 0.85)},
+	{"background": Color(0.030, 0.065, 0.055), "grid": Color(0.35, 1.0, 0.65, 0.055),
+	 "wall": Color(0.35, 1.0, 0.65, 0.55), "accent": Color(0.35, 1.0, 0.65)},
+	{"background": Color(0.070, 0.055, 0.025), "grid": Color(1.0, 0.80, 0.30, 0.055),
+	 "wall": Color(1.0, 0.80, 0.30, 0.55), "accent": Color(1.0, 0.80, 0.30)},
+	{"background": Color(0.050, 0.035, 0.085), "grid": Color(0.70, 0.55, 1.0, 0.055),
+	 "wall": Color(0.70, 0.55, 1.0, 0.55), "accent": Color(0.70, 0.55, 1.0)},
+	{"background": Color(0.080, 0.030, 0.030), "grid": Color(1.0, 0.40, 0.35, 0.055),
+	 "wall": Color(1.0, 0.40, 0.35, 0.55), "accent": Color(1.0, 0.40, 0.35)},
+]
+## Each cycle through the palettes comes back slightly hotter.
+const STAGE_PALETTE_INTENSITY := 0.06
+
+# --- Boss gate and anti-stall ------------------------------------------------
+## A boss the player cannot kill must not become a camping spot.
+const ENRAGE_DELAY := 40.0
+const ENRAGE_STEP := 10.0
+const ENRAGE_DAMAGE_MULT := 1.20
+const ENRAGE_CADENCE_MULT := 0.92       # still floored by BOSS_CADENCE_MIN
+const ENRAGE_SPEED_MULT := 1.08
+const ENRAGE_TINT := Color(1.0, 0.35, 0.35)
+const ENRAGE_MAX_STEPS := 20
+
+# --- Stage clear -------------------------------------------------------------
+const STAGE_SHOCKWAVE_DELAY := 0.35
+const STAGE_CALM_DURATION := 2.2
+## The shockwave awards NOTHING. It creates the breather, and it closes the
+## "let trash pile up, then kill the boss for a free screen-clear" exploit.
+const STAGE_SHOCKWAVE_AWARDS_SCORE := false
+
+const PORTAL_RADIUS := 34.0
+const PORTAL_SPIN := 1.4
 
 # =============================================================================
 # SCORING

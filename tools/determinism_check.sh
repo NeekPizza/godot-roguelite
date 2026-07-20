@@ -20,19 +20,24 @@
 set -euo pipefail
 
 DATE="${1:-2026-01-01}"
-SECONDS_LIMIT="${2:-900}"
-SCALE="${3:-10}"
+SECONDS_LIMIT="${2:-2400}"
+SCALE="${3:-14}"
+# Advancing a stage means killing its boss, which a scripted player cannot do
+# against scaling boss HP. This test-only hook lets the run cross several
+# stages; it is in TEST_HOOK_ARGS, so a run using it can never be ranked.
+BOSS_HP_MULT="${4:-0.01}"
 
 run() {  # $1 = scripted input seed
   godot --headless -- --save-file=determinism_check.json \
-    --date="$DATE" --scripted-input="$1" \
+    --date="$DATE" --scripted-input="$1" --boss-hp-mult="$BOSS_HP_MULT" \
     --time-scale="$SCALE" --max-seconds="$SECONDS_LIMIT" \
     --auto-pick --godmode --quit-on-end 2>&1 \
-    | grep -E '^\[digest\]|^\[run\] over'
+    | grep -E '^\[digest\]|^\[run\] over|^\[run\] === STAGE'
 }
 
 echo "seed date : $DATE"
 echo "sim       : ${SECONDS_LIMIT}s at ${SCALE}x, scripted player, godmode"
+echo "stages    : boss HP x${BOSS_HP_MULT} so the run crosses several"
 echo
 
 run replay-a > /tmp/det_a.txt
@@ -41,8 +46,15 @@ run replay-b > /tmp/det_c.txt
 
 status=0
 
+stages_crossed=$(grep -c '=== STAGE' /tmp/det_a.txt || true)
+if [ "$stages_crossed" -lt 3 ]; then
+  echo "FAIL  only $stages_crossed stage(s) entered — the check must cross at"
+  echo "      least 3, or it is silently only testing Stage 1."
+  exit 1
+fi
+
 if diff -q /tmp/det_a.txt /tmp/det_b.txt > /dev/null; then
-  echo "PASS  same seed + same player  -> identical end state"
+  echo "PASS  same seed + same player  -> identical end state ($stages_crossed stages)"
   sed 's/^/      /' /tmp/det_a.txt
 else
   echo "FAIL  same seed + same player  -> DIVERGED"
