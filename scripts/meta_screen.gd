@@ -2,16 +2,17 @@ extends Control
 
 ## The upgrade screen.
 ##
-## Three things it has to communicate, in order of importance:
+## Two things it has to communicate:
 ##
-## 1. **Power converges.** The +10% ceiling is a fairness cap, not a grind wall
-##    — everyone reaches it, and reaching it is the intended end state. A player
-##    who reads it as "content I haven't unlocked yet" will feel behind forever.
-## 2. **What concentrating costs.** The ceiling is on PURCHASES, so stacking one
-##    stat never lowers your ceiling; it costs POINTS, which is time. That has
-##    to be visible before committing, not discovered afterwards.
-## 3. **Respec is free.** If experimenting is safe, a mispriced choice is a
+## 1. **What a purchase actually does.** Hovering or focusing a buy button
+##    projects the resulting total power, so the effect is visible before
+##    committing rather than discovered afterwards.
+## 2. **Respec is free.** If experimenting is safe, a mispriced choice is a
 ##    curiosity rather than a trap.
+##
+## The design deliberately does NOT explain the ceiling, the budget maths, or
+## what concentrating costs in points. Those govern the system; the player just
+## needs to see what they get.
 
 signal closed
 
@@ -21,7 +22,6 @@ const ROW_HEIGHT := 46
 @onready var _power_bar: ProgressBar = $Center/Panel/Header/PowerBar
 @onready var _budget_label: Label = $Center/Panel/Header/Budget
 @onready var _points_label: Label = $Center/Panel/Header/Points
-@onready var _converge_label: Label = $Center/Panel/Converge
 @onready var _rows: VBoxContainer = $Center/Panel/Rows
 @onready var _projection: Label = $Center/Panel/Projection
 @onready var _respec: Button = $Center/Panel/Buttons/Respec
@@ -117,12 +117,6 @@ func refresh() -> void:
 	_budget_label.text = "Budget  %d / %d purchases" % [used, budget]
 	_points_label.text = "Points  %d" % MetaStore.points
 
-	if used >= budget:
-		_converge_label.text = "CEILING REACHED — this is the intended end state.\nEveryone converges here; from now on points go to cosmetics."
-	else:
-		_converge_label.text = "Power CONVERGES at +%.0f%% and stops. The ceiling is a fairness cap, not a grind wall.\n%d points fills the rest of your budget from here." % [
-			Balance.META_AGGREGATE_CAP * 100.0, Meta.points_to_fill_budget(purchases)]
-
 	for stat_id in Balance.META_STATS:
 		_refresh_row(stat_id)
 	_clear_projection()
@@ -161,24 +155,12 @@ func _show_projection(stat_id: String) -> void:
 		return
 
 	var after := Meta.projected_bonus(MetaStore.purchases, stat_id)
-	var next := MetaStore.purchases.duplicate()
-	next[stat_id] = owned + 1
-	var fill_now := Meta.points_to_fill_budget(MetaStore.purchases)
-	var fill_after := Meta.points_to_fill_budget(next)
-	var spent := Meta.next_cost(owned)
-
-	# The honest framing: concentrating does not lower the ceiling, it makes
-	# reaching it more expensive. Showing both numbers makes that legible.
-	var delta := (spent + fill_after) - fill_now
-	var cost_note := "same total cost" if delta == 0 \
-		else "%d pts %s overall" % [absi(delta), "MORE" if delta > 0 else "less"]
-	_projection.text = "→ %s becomes +%.2f%%   ·   %d pts now, %d to fill the rest — %s" % [
-		str(Balance.META_STATS[stat_id]["name"]), after * 100.0,
-		spent, fill_after, cost_note]
+	_projection.text = "→ %s becomes +%.2f%%" % [
+		str(Balance.META_STATS[stat_id]["name"]), after * 100.0]
 
 
 func _clear_projection() -> void:
-	_projection.text = "Hover an upgrade to see what it costs you."
+	_projection.text = "Hover an upgrade to preview it."
 
 
 func _on_buy(stat_id: String) -> void:

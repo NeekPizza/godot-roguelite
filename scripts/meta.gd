@@ -107,33 +107,6 @@ static func projected_bonus(purchases: Dictionary, stat_id: String) -> float:
 	return effective_bonus(next)
 
 
-## Points needed to fill the remaining budget from here, cheapest-first.
-##
-## This is the real cost of concentrating: the ceiling is on PURCHASES, so
-## stacking one stat never lowers your ceiling — it just makes reaching it take
-## longer. Spread costs ~754 points; sinking 12 into a single stat costs ~923
-## for the same +10%.
-static func points_to_fill_budget(purchases: Dictionary) -> int:
-	var working := purchases.duplicate()
-	var total := 0
-	for i in budget_remaining(working):
-		var cheapest_id := ""
-		var cheapest := -1
-		for stat_id in Balance.META_STATS:
-			var owned := int(working.get(stat_id, 0))
-			if owned >= Balance.META_MAX_BUYS:
-				continue
-			var cost := next_cost(owned)
-			if cheapest < 0 or cost < cheapest:
-				cheapest = cost
-				cheapest_id = stat_id
-		if cheapest_id == "":
-			break
-		working[cheapest_id] = int(working[cheapest_id]) + 1
-		total += cheapest
-	return total
-
-
 ## Next milestone description for a stat, or "" if it has none pending.
 static func next_milestone_text(purchases: Dictionary, stat_id: String) -> String:
 	var entry: Dictionary = Balance.META_STATS[stat_id]
