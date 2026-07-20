@@ -574,8 +574,13 @@ const META_STATS := {
 			   "kind": "mult", "target": "dash_cooldown_scale", "at_cap": -0.03},
 	"xp":     {"name": "Headstart", "desc": "Start closer to level 2",
 			   "kind": "headstart", "at_cap": 1.0},
-	"reroll": {"name": "Foresight", "desc": "+1 reroll, at full only",
-			   "kind": "rerolls", "at_cap": 1},
+	## A LADDER, not a single gate. At 12 purchases (445 pts) a lone milestone
+	## was 55% of the whole budget for one reroll — a tease rather than a
+	## choice. The first rung at 8 (191 pts, ~24% of budget) is a real decision;
+	## the second stays expensive for someone who genuinely wants it.
+	"reroll": {"name": "Foresight", "desc": "+1 reroll at 8, +2 at 12",
+			   "kind": "rerolls", "at_cap": 2,
+			   "milestones": {8: 1, 12: 2}},
 	## Deliberately the weakest option: damage compounds with in-run upgrades
 	## and is the one place an unfair edge would actually show.
 	"damage": {"name": "Edge",      "desc": "+3% damage",

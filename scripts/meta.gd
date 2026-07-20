@@ -82,11 +82,74 @@ static func apply(player: Node, purchases: Dictionary) -> void:
 	# cannot push it past the ceiling the in-run passive already respects.
 
 
-## Extra rerolls: a discrete milestone, granted only at FULL purchases.
+## Extra rerolls, as a milestone LADDER. The highest threshold reached wins.
 static func bonus_rerolls(purchases: Dictionary) -> int:
-	if int(purchases.get("reroll", 0)) < Balance.META_MAX_BUYS:
-		return 0
-	return int(Balance.META_STATS["reroll"]["at_cap"])
+	var owned := int(purchases.get("reroll", 0))
+	var granted := 0
+	var milestones: Dictionary = Balance.META_STATS["reroll"].get("milestones", {})
+	for threshold in milestones:
+		if owned >= int(threshold):
+			granted = maxi(granted, int(milestones[threshold]))
+	return granted
+
+
+## Purchases still available before the aggregate ceiling binds.
+static func budget_remaining(purchases: Dictionary) -> int:
+	return maxi(0, max_total_purchases() - total_purchases(purchases))
+
+
+## What the total power WOULD be after one more purchase in `stat_id`.
+## Drives the live projection on the upgrade screen: the tradeoff has to be
+## visible before committing, not discovered afterwards.
+static func projected_bonus(purchases: Dictionary, stat_id: String) -> float:
+	var next := purchases.duplicate()
+	next[stat_id] = int(next.get(stat_id, 0)) + 1
+	return effective_bonus(next)
+
+
+## Points needed to fill the remaining budget from here, cheapest-first.
+##
+## This is the real cost of concentrating: the ceiling is on PURCHASES, so
+## stacking one stat never lowers your ceiling — it just makes reaching it take
+## longer. Spread costs ~754 points; sinking 12 into a single stat costs ~923
+## for the same +10%.
+static func points_to_fill_budget(purchases: Dictionary) -> int:
+	var working := purchases.duplicate()
+	var total := 0
+	for i in budget_remaining(working):
+		var cheapest_id := ""
+		var cheapest := -1
+		for stat_id in Balance.META_STATS:
+			var owned := int(working.get(stat_id, 0))
+			if owned >= Balance.META_MAX_BUYS:
+				continue
+			var cost := next_cost(owned)
+			if cheapest < 0 or cost < cheapest:
+				cheapest = cost
+				cheapest_id = stat_id
+		if cheapest_id == "":
+			break
+		working[cheapest_id] = int(working[cheapest_id]) + 1
+		total += cheapest
+	return total
+
+
+## Next milestone description for a stat, or "" if it has none pending.
+static func next_milestone_text(purchases: Dictionary, stat_id: String) -> String:
+	var entry: Dictionary = Balance.META_STATS[stat_id]
+	if not entry.has("milestones"):
+		return ""
+	var owned := int(purchases.get(stat_id, 0))
+	var best := -1
+	var thresholds: Array = entry["milestones"].keys()
+	thresholds.sort()
+	for threshold in thresholds:
+		if owned < int(threshold):
+			best = int(threshold)
+			break
+	if best < 0:
+		return "all milestones reached"
+	return "%d more → milestone" % (best - owned)
 
 
 ## Starting XP, as a fraction of the level-2 requirement.

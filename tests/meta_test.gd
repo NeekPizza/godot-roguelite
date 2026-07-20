@@ -95,13 +95,40 @@ func _ready() -> void:
 	_check("there is no luck / drop-rate stat",
 		not Balance.META_STATS.has("luck") and not Balance.META_STATS.has("drop_rate"))
 
-	print("\n=== rerolls are a discrete milestone ===")
-	var almost := Meta.profile_none()
-	almost["reroll"] = Balance.META_MAX_BUYS - 1
-	_check("no bonus reroll just short of full", Meta.bonus_rerolls(almost) == 0)
-	var full := Meta.profile_none()
-	full["reroll"] = Balance.META_MAX_BUYS
-	_check("+1 reroll at full", Meta.bonus_rerolls(full) == 1)
+	print("\n=== rerolls are a milestone LADDER (8 -> +1, 12 -> +2) ===")
+	var milestones: Dictionary = Balance.META_STATS["reroll"]["milestones"]
+	var rungs: Array = milestones.keys()
+	rungs.sort()
+	# Assert against the DATA, so re-pricing the ladder in balance.gd cannot
+	# leave a test asserting numbers the game no longer uses.
+	for rung in rungs:
+		var below := Meta.profile_none()
+		below["reroll"] = int(rung) - 1
+		var at := Meta.profile_none()
+		at["reroll"] = int(rung)
+		_check("no grant at %d, +%d at %d" % [int(rung) - 1, int(milestones[rung]), int(rung)],
+			Meta.bonus_rerolls(below) < int(milestones[rung])
+				and Meta.bonus_rerolls(at) == int(milestones[rung]))
+
+	# A ladder that never decreases as you buy more — the failure this catches is
+	# a maxi()/overwrite mixup silently DROPPING the lower rung's grant.
+	var previous := 0
+	var monotonic := true
+	for owned in Balance.META_MAX_BUYS + 1:
+		var profile := Meta.profile_none()
+		profile["reroll"] = owned
+		var granted := Meta.bonus_rerolls(profile)
+		if granted < previous:
+			monotonic = false
+		previous = granted
+	_check("grants never decrease as purchases rise", monotonic)
+
+	# The first rung has to be reachable, or it is a tease rather than a choice.
+	var first_rung := Meta.profile_none()
+	first_rung["reroll"] = int(rungs[0])
+	var share := float(Meta.total_spent(first_rung)) / float(Meta.total_spent(maxed))
+	_check("first rung costs %.0f%% of the budget (want under 35%%)" % (share * 100.0),
+		share < 0.35)
 
 	print("\n=== the test hook can never be ranked ===")
 	var guarded := false

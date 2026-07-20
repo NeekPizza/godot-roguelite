@@ -15,6 +15,7 @@ const RUN_SCENE := "res://scenes/run.tscn"
 @onready var _ranked_button: Button = $Center/Root/Buttons/Ranked
 @onready var _practice_button: Button = $Center/Root/Buttons/Practice
 @onready var _archive_button: Button = $Center/Root/Buttons/Archive
+@onready var _upgrades_button: Button = $Center/Root/Buttons/Upgrades
 @onready var _settings_button: Button = $Center/Root/Buttons/Settings
 @onready var _quit_button: Button = $Center/Root/Buttons/Quit
 
@@ -32,6 +33,7 @@ const RUN_SCENE := "res://scenes/run.tscn"
 @onready var _archive_back: Button = $Archive/Center/Panel/Back
 
 @onready var _settings: Control = $Settings
+@onready var _meta: Control = $Meta
 
 var _archive_date_string := ""
 
@@ -49,6 +51,7 @@ func _ready() -> void:
 	_ranked_button.pressed.connect(_on_ranked_pressed)
 	_practice_button.pressed.connect(_launch_practice)
 	_archive_button.pressed.connect(_open_archive)
+	_upgrades_button.pressed.connect(_open_upgrades)
 	_settings_button.pressed.connect(_open_settings)
 	_quit_button.pressed.connect(_quit)
 
@@ -60,10 +63,12 @@ func _ready() -> void:
 	_archive_play.pressed.connect(_launch_archive)
 	_archive_back.pressed.connect(func(): _close_overlay(_archive, _archive_button))
 	_settings.closed.connect(func(): _close_overlay(_settings, _settings_button))
+	_meta.closed.connect(func(): _close_overlay(_meta, _upgrades_button))
 
 	_confirm.hide()
 	_archive.hide()
 	_settings.hide()
+	_meta.hide()
 	_refresh()
 	_focus_first_available()
 	_open_requested_overlay()
@@ -80,6 +85,7 @@ func _open_requested_overlay() -> void:
 			"confirm": _on_ranked_pressed()
 			"archive": _open_archive()
 			"settings": _open_settings()
+			"upgrades": _open_upgrades()
 
 
 func _refresh() -> void:
@@ -172,6 +178,12 @@ func _close_overlay(overlay: Control, focus_target: Button) -> void:
 	_menu_root.show()
 	_refresh()
 	focus_target.grab_focus()
+
+
+func _open_upgrades() -> void:
+	_meta.refresh()
+	_open_overlay(_meta)
+	_meta.focus_first()
 
 
 func _open_settings() -> void:
