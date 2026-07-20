@@ -836,7 +836,7 @@ func _refresh_card_controls() -> void:
 	_banish_button.text = "BANISH (%d)" % _banishes_left
 	_banish_button.disabled = _banishes_left <= 0
 	_levelup_hint.text = "Pick a card to banish it" if _banish_armed \
-		else "Slots %d/%d   ·   %s" % [_weapons.slots_used(), _weapon_slots, _weapons.summary()]
+		else _weapons.summary()
 
 
 func _on_reroll_pressed() -> void:
@@ -1133,8 +1133,7 @@ func _update_hud() -> void:
 	_level_label.text = "LV %d   ·   STAGE %d   %s  %s" % [
 		_level, _stage, RunConfig.mode_name(), _date_string]
 	_refresh_buff_list()
-	_weapons_label.text = "%s     [%d/%d slots]" % [
-		_weapons.summary(), _weapons.slots_used(), _weapon_slots]
+	_weapons_label.text = _weapons.summary()
 	_hp_bar.value = _player.hp
 	_xp_bar.max_value = _xp_needed(_level)
 	_xp_bar.value = _xp_into_level

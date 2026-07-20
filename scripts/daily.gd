@@ -4,12 +4,12 @@ extends RefCounted
 ## Per-day rules derived from the date alone.
 ##
 ## Deliberately STATIC and side-effect free so the menu can show today's rules
-## before a run exists — the ranked confirmation has to display the weapon-slot
-## count, and a player must be able to see it before spending their attempt.
+## before a run exists.
 
-## How many weapons the day allows. The single biggest lever the seed has on how
-## a day plays: three slots forces specialisation and early evolutions, five
-## invites a generalist sprawl.
+## How many weapons the day allows — currently a flat 3 for every seed
+## (WEAPON_SLOT_WEIGHTS), so it is no longer surfaced in the UI. The RNG draw
+## STAYS regardless: enemy_roster() burns a matching randf() to stay in step,
+## so dropping this draw would silently change what every past seed means.
 static func weapon_slots(date_string: String) -> int:
 	var rng := GameSeed.make_daily_rng(date_string)
 	var roll := rng.randf()
@@ -43,10 +43,10 @@ static func enemy_roster(date_string: String) -> Array:
 	return roster
 
 
-## Human-readable summary for the menu.
+## Human-readable summary for the menu. Weapon slots are a flat 3 every day, so
+## stating the count here said nothing; the roster is the part that varies.
 static func summary(date_string: String) -> String:
 	var names := PackedStringArray()
 	for type_id in enemy_roster(date_string):
 		names.append(str(Balance.ENEMY_TYPES[type_id]["name"]))
-	return "Weapon slots: %d   ·   Today: %s" % [
-		weapon_slots(date_string), ", ".join(names)]
+	return "Today: %s" % ", ".join(names)
