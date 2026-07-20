@@ -124,6 +124,8 @@ godot --headless tests/boss_test.tscn                                # archetype
 godot --headless tests/temp_weapon_test.tscn                         # temp drops add to the loadout
 godot --headless tests/stages_test.tscn                              # stage derivation, rosters, palettes
 godot --headless tests/meta_test.tscn                                # meta ceiling, costs, convergence
+godot --headless tests/records_test.tscn -- --save-file=test_save.json # personal bests, lifetime totals
+godot --headless tests/cosmetics_test.tscn -- --meta-profile=none    # cosmetics carry no stat, titles unlock
 godot --headless tests/save_test.tscn -- --save-file=test_save.json   # ranked ledger + table
 ./tools/determinism_check.sh                                          # daily-seed determinism
 ```

@@ -12,6 +12,14 @@ signal xp_collected(amount: int)
 const COLOR_BODY := Color(0.25, 0.95, 1.0)
 const COLOR_HURT := Color(1.0, 0.35, 0.45)
 
+# --- Cosmetics (8d) ---
+# Purely visual, written by Cosmetics.apply(). Defaults reproduce the stock look,
+# so a run with no cosmetics equipped draws exactly as it did before 8d. These
+# feed _draw only; nothing here is read by any gameplay code.
+var body_color := COLOR_BODY
+var body_shape := "dart"
+var trail_color := COLOR_BODY
+
 # --- Stat block ---
 # Weapons carry their own numbers (balance.gd WEAPONS); everything here is a
 # GLOBAL passive modifier applied on top of every held weapon. Passives mutate
@@ -228,17 +236,37 @@ func heal(amount: float) -> void:
 	damaged.emit(hp)
 
 
+## Cosmetic silhouettes. Every one is DIRECTIONAL — the point leads along
+## `angle` — so the player stays readable as the thing that aims, distinct from
+## the symmetric enemy roster (GDD section 11). Shape is a look, never a hitbox:
+## the collision circle in _ready is unchanged.
 func _body_points(radius: float, angle: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(0.0, -radius).rotated(angle),
-		Vector2(-radius * 0.8, radius * 0.7).rotated(angle),
-		Vector2(radius * 0.8, radius * 0.7).rotated(angle),
-	])
+	var raw: PackedVector2Array
+	match body_shape:
+		"needle":
+			raw = PackedVector2Array([
+				Vector2(0.0, -radius * 1.35), Vector2(-radius * 0.45, radius * 0.75),
+				Vector2(radius * 0.45, radius * 0.75)])
+		"kite":
+			raw = PackedVector2Array([
+				Vector2(0.0, -radius), Vector2(-radius * 0.7, radius * 0.15),
+				Vector2(0.0, radius * 1.15), Vector2(radius * 0.7, radius * 0.15)])
+		"delta":
+			raw = PackedVector2Array([
+				Vector2(0.0, -radius), Vector2(-radius, radius * 0.85),
+				Vector2(0.0, radius * 0.35), Vector2(radius, radius * 0.85)])
+		_:  # "dart" — the stock triangle
+			raw = PackedVector2Array([
+				Vector2(0.0, -radius), Vector2(-radius * 0.8, radius * 0.7),
+				Vector2(radius * 0.8, radius * 0.7)])
+	for i in raw.size():
+		raw[i] = raw[i].rotated(angle)
+	return raw
 
 
 func _draw() -> void:
 	var radius := Balance.PLAYER_RADIUS
-	var color := COLOR_HURT if _iframes > 0.0 else COLOR_BODY
+	var color := COLOR_HURT if _iframes > 0.0 else body_color
 
 	# Afterimages trail behind the dash, drawn in this node's local space.
 	for image in _afterimages:
@@ -247,7 +275,7 @@ func _draw() -> void:
 		var ghost := _body_points(radius, image["angle"] + PI * 0.5)
 		for i in ghost.size():
 			ghost[i] += local
-		draw_colored_polygon(ghost, Color(COLOR_BODY, 0.30 * fade))
+		draw_colored_polygon(ghost, Color(trail_color, 0.30 * fade))
 
 	var angle := _facing.angle() + PI * 0.5
 	var points := _body_points(radius, angle)
@@ -268,9 +296,9 @@ func _draw() -> void:
 func _draw_dash_ring() -> void:
 	var ring := Balance.DASH_COOLDOWN_RING_RADIUS
 	if can_dash():
-		draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(COLOR_BODY, 0.30), 2.0)
+		draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(body_color, 0.30), 2.0)
 		return
 	var ready_fraction := 1.0 - dash_cooldown_fraction()
-	draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(COLOR_BODY, 0.10), 2.0)
+	draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(body_color, 0.10), 2.0)
 	draw_arc(Vector2.ZERO, ring, -PI * 0.5, -PI * 0.5 + TAU * ready_fraction, 28,
-		Color(COLOR_BODY, 0.55), 2.0)
+		Color(body_color, 0.55), 2.0)

@@ -22,6 +22,13 @@ var points := 0
 var purchases := {}
 var lifetime := {}
 
+## Cosmetics live APART from `purchases` on purpose: they spend the same points
+## but never enter the budget, so they can never move the +10% ceiling. `owned`
+## is a list of option ids; `equipped` maps category -> id. `title` is the
+## equipped milestone label.
+var cosmetics := {}
+var title := ""
+
 var _test_profile := ""          # non-empty means "never touch disk"
 
 
@@ -36,6 +43,8 @@ func is_test_profile() -> bool:
 func _ready() -> void:
 	purchases = Meta.profile_none()
 	lifetime = _default_lifetime()
+	cosmetics = _default_cosmetics()
+	title = Balance.TITLES[0]["id"]
 
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--meta-profile="):
@@ -66,6 +75,10 @@ func _default_lifetime() -> Dictionary:
 			"kills": 0, "bosses": 0, "seconds": 0}
 
 
+func _default_cosmetics() -> Dictionary:
+	return {"owned": Cosmetics.default_owned(), "equipped": Cosmetics.default_equipped()}
+
+
 func load_from_disk() -> void:
 	if not FileAccess.file_exists(meta_path()):
 		return
@@ -86,6 +99,29 @@ func load_from_disk() -> void:
 	for key in lifetime:
 		lifetime[key] = int(stored_lifetime.get(key, 0))
 
+	_load_cosmetics(parsed.get("cosmetics", {}))
+	# An equipped title that is no longer valid (renamed catalog, hand-edited
+	# save) falls back to the always-unlocked default rather than displaying junk.
+	var stored_title := str(parsed.get("title", Balance.TITLES[0]["id"]))
+	title = stored_title if not Cosmetics.title(stored_title).is_empty() \
+		else str(Balance.TITLES[0]["id"])
+
+
+## Rebuilt from defaults so a save that predates a category — or one written by
+## a newer build with an option this build lacks — still yields a valid,
+## fully-owned set of defaults plus whatever stored ids are still real.
+func _load_cosmetics(stored: Dictionary) -> void:
+	cosmetics = _default_cosmetics()
+	for id in stored.get("owned", []):
+		if not Cosmetics.option(str(id)).is_empty() and not cosmetics["owned"].has(id):
+			cosmetics["owned"].append(str(id))
+	var stored_equipped: Dictionary = stored.get("equipped", {})
+	for category in Balance.COSMETICS:
+		var id := str(stored_equipped.get(category, ""))
+		# Only equip something actually owned; anything else stays the default.
+		if cosmetics["owned"].has(id) and Cosmetics.category_of(id) == category:
+			cosmetics["equipped"][category] = id
+
 
 func save_to_disk() -> void:
 	if is_test_profile():
@@ -96,6 +132,7 @@ func save_to_disk() -> void:
 		return
 	file.store_string(JSON.stringify({
 		"points": points, "purchases": purchases, "lifetime": lifetime,
+		"cosmetics": cosmetics, "title": title,
 	}, "\t"))
 	file.close()
 
@@ -133,6 +170,52 @@ func respec() -> void:
 func award_points(amount: int) -> void:
 	points += amount
 	save_to_disk()
+
+
+# --- Cosmetics (8d) ----------------------------------------------------------
+#
+# A separate spend path from buy(). It touches `cosmetics` and `points` and
+# nothing in `purchases`, so no amount of cosmetic spending can move the budget.
+
+func cosmetic_owned(id: String) -> bool:
+	return cosmetics["owned"].has(id)
+
+
+func can_buy_cosmetic(id: String) -> bool:
+	var entry := Cosmetics.option(id)
+	if entry.is_empty() or cosmetic_owned(id):
+		return false
+	return points >= int(entry["cost"])
+
+
+func buy_cosmetic(id: String) -> bool:
+	if not can_buy_cosmetic(id):
+		return false
+	points -= int(Cosmetics.option(id)["cost"])
+	cosmetics["owned"].append(id)
+	save_to_disk()
+	return true
+
+
+func equip_cosmetic(id: String) -> bool:
+	var category := Cosmetics.category_of(id)
+	if category == "" or not cosmetic_owned(id):
+		return false
+	cosmetics["equipped"][category] = id
+	save_to_disk()
+	return true
+
+
+func equip_title(id: String) -> bool:
+	if not Cosmetics.title_unlocked(lifetime, id):
+		return false
+	title = id
+	save_to_disk()
+	return true
+
+
+func title_text() -> String:
+	return Cosmetics.title_text(title)
 
 
 ## Files the run and returns the labels of any records it broke, newest values

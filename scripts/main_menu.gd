@@ -17,6 +17,7 @@ const RUN_SCENE := "res://scenes/run.tscn"
 @onready var _archive_button: Button = $Center/Root/Buttons/Archive
 @onready var _upgrades_button: Button = $Center/Root/Buttons/Upgrades
 @onready var _records_button: Button = $Center/Root/Buttons/Records
+@onready var _cosmetics_button: Button = $Center/Root/Buttons/Cosmetics
 @onready var _settings_button: Button = $Center/Root/Buttons/Settings
 @onready var _quit_button: Button = $Center/Root/Buttons/Quit
 
@@ -36,6 +37,7 @@ const RUN_SCENE := "res://scenes/run.tscn"
 @onready var _settings: Control = $Settings
 @onready var _meta: Control = $Meta
 @onready var _records: Control = $Records
+@onready var _cosmetics: Control = $Cosmetics
 
 var _archive_date_string := ""
 
@@ -55,6 +57,7 @@ func _ready() -> void:
 	_archive_button.pressed.connect(_open_archive)
 	_upgrades_button.pressed.connect(_open_upgrades)
 	_records_button.pressed.connect(_open_records)
+	_cosmetics_button.pressed.connect(_open_cosmetics)
 	_settings_button.pressed.connect(_open_settings)
 	_quit_button.pressed.connect(_quit)
 
@@ -68,12 +71,14 @@ func _ready() -> void:
 	_settings.closed.connect(func(): _close_overlay(_settings, _settings_button))
 	_meta.closed.connect(func(): _close_overlay(_meta, _upgrades_button))
 	_records.closed.connect(func(): _close_overlay(_records, _records_button))
+	_cosmetics.closed.connect(func(): _close_overlay(_cosmetics, _cosmetics_button))
 
 	_confirm.hide()
 	_archive.hide()
 	_settings.hide()
 	_meta.hide()
 	_records.hide()
+	_cosmetics.hide()
 	_refresh()
 	_focus_first_available()
 	_open_requested_overlay()
@@ -92,6 +97,7 @@ func _open_requested_overlay() -> void:
 			"settings": _open_settings()
 			"upgrades": _open_upgrades()
 			"records": _open_records()
+			"cosmetics": _open_cosmetics()
 
 
 func _refresh() -> void:
@@ -196,6 +202,12 @@ func _open_records() -> void:
 	_records.refresh()
 	_open_overlay(_records)
 	_records.focus_first()
+
+
+func _open_cosmetics() -> void:
+	_cosmetics.refresh()
+	_open_overlay(_cosmetics)
+	_cosmetics.focus_first()
 
 
 func _open_settings() -> void:

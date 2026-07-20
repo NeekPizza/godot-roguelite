@@ -12,6 +12,7 @@ extends Control
 
 signal closed
 
+@onready var _title: Label = $Center/Panel/PlayerTitle
 @onready var _records: VBoxContainer = $Center/Panel/Records
 @onready var _lifetime: VBoxContainer = $Center/Panel/Lifetime
 @onready var _table: VBoxContainer = $Center/Panel/Table
@@ -30,6 +31,7 @@ func focus_first() -> void:
 
 
 func refresh() -> void:
+	_title.text = MetaStore.title_text()
 	_fill(_records, _record_rows())
 	_fill(_lifetime, _lifetime_rows())
 

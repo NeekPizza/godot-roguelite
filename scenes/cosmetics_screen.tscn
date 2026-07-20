@@ -1,0 +1,57 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/cosmetics_screen.gd" id="1"]
+
+[node name="CosmeticsScreen" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.95)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 14
+
+[node name="Top" type="HBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Preview" type="Control" parent="Center/Panel/Top"]
+custom_minimum_size = Vector2(110, 110)
+
+[node name="Heading" type="VBoxContainer" parent="Center/Panel/Top"]
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Center/Panel/Top/Heading"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "CUSTOMISE"
+
+[node name="Blurb" type="Label" parent="Center/Panel/Top/Heading"]
+theme_override_colors/font_color = Color(0.62, 0.72, 0.88, 1)
+theme_override_font_sizes/font_size = 14
+text = "Looks only — cosmetics never change how you play."
+
+[node name="Points" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "Points"
+
+[node name="Categories" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 6
+
+[node name="Titles" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 6
+
+[node name="Back" type="Button" parent="Center/Panel"]
+custom_minimum_size = Vector2(0, 44)
+theme_override_font_sizes/font_size = 18
+text = "BACK"

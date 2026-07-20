@@ -204,6 +204,10 @@ func _ready() -> void:
 			MetaStore.bonus_text(), Meta.bonus_rerolls(MetaStore.purchases),
 			_xp_into_level])
 
+	# Cosmetics: VISUAL ONLY. Applied after the stats above are settled, but the
+	# order is irrelevant — apply() writes colour and shape, never a number.
+	Cosmetics.apply(_player, MetaStore.cosmetics.get("equipped", {}))
+
 	_player.hp = _player.max_hp
 	_player.godmode = _godmode
 	_player.projectile_parent = _projectiles

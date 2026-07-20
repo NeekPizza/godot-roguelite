@@ -1330,7 +1330,7 @@ anything away, and they map cleanly onto per-month Steam leaderboards.
 | **8a** | **DONE.** Meta profile persistence, point awards from ranked runs, seven stats, cost curve, caps, free respec, applied to the player at run start | `--meta-profile` hook; the check runs at zero **and** at max |
 | **8b** | **DONE.** Upgrade screen from the main menu: costs, caps, projected-power readout on hover/focus, free respec | None |
 | **8c** | **DONE.** Records screen, lifetime totals, NEW PERSONAL BEST banner + sting | None |
-| **8d** | Cosmetics and titles | Cosmetics must not reach the stat path |
+| **8d** | **DONE.** Customise screen (hull/shape/dash-trail cosmetics), milestone titles on the profile | Cosmetics are colour + shape only, never a number; a stat-block snapshot test holds the line |
 
 **Ordering:** 8a establishes what the rest displays. 8d is last because it is the
 only part with no gameplay effect, so it cannot mask a balance problem.

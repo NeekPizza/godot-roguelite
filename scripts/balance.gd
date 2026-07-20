@@ -643,6 +643,69 @@ const RECORDS_TABLE_ROWS := 5
 const RECORD_STING_DELAY := 0.55
 const RECORD_STING_VOLUME := -4.0
 
+# --- Cosmetics (8d) ----------------------------------------------------------
+#
+# ZERO gameplay effect, enforced by construction: every option's payload is a
+# `color` (a Color) or a `shape` (a silhouette id string) and NOTHING else. No
+# option carries a number that a stat could read, and the category ids below
+# deliberately share no name with META_STATS, so a cosmetic can never be mistaken
+# for an upgrade. cosmetics_test.gd holds that line.
+#
+# Cosmetics are bought with the same points as upgrades but never enter
+# `purchases`, so they do not count against the +10% budget and cannot move it.
+#
+# The first option in each category is the free default, owned from the start.
+const COSMETICS := {
+	"hull": {
+		"label": "Hull", "kind": "color",
+		"options": [
+			{"id": "hull_cyan", "name": "Cyan", "cost": 0, "color": Color(0.25, 0.95, 1.0)},
+			{"id": "hull_magenta", "name": "Magenta", "cost": 40, "color": Color(1.0, 0.28, 0.85)},
+			{"id": "hull_lime", "name": "Lime", "cost": 40, "color": Color(0.55, 1.0, 0.35)},
+			{"id": "hull_amber", "name": "Amber", "cost": 60, "color": Color(1.0, 0.75, 0.25)},
+			{"id": "hull_violet", "name": "Violet", "cost": 60, "color": Color(0.65, 0.55, 1.0)},
+			{"id": "hull_white", "name": "White-hot", "cost": 90, "color": Color(0.95, 0.98, 1.0)},
+		],
+	},
+	# Player silhouettes are all DIRECTIONAL (they point along facing) — the enemy
+	# roster is symmetric or spinning, so even a shared family stays readable as
+	# "the thing that aims." See GDD section 11 on shape carrying identity.
+	"shape": {
+		"label": "Shape", "kind": "shape",
+		"options": [
+			{"id": "shape_dart", "name": "Dart", "cost": 0, "shape": "dart"},
+			{"id": "shape_needle", "name": "Needle", "cost": 50, "shape": "needle"},
+			{"id": "shape_kite", "name": "Kite", "cost": 50, "shape": "kite"},
+			{"id": "shape_delta", "name": "Delta", "cost": 70, "shape": "delta"},
+		],
+	},
+	"trail": {
+		"label": "Dash trail", "kind": "color",
+		"options": [
+			{"id": "trail_cyan", "name": "Cyan", "cost": 0, "color": Color(0.25, 0.95, 1.0)},
+			{"id": "trail_magenta", "name": "Magenta", "cost": 30, "color": Color(1.0, 0.28, 0.85)},
+			{"id": "trail_lime", "name": "Lime", "cost": 30, "color": Color(0.55, 1.0, 0.35)},
+			{"id": "trail_amber", "name": "Amber", "cost": 40, "color": Color(1.0, 0.75, 0.25)},
+		],
+	},
+}
+
+# --- Titles (8d) -------------------------------------------------------------
+#
+# Milestone labels, unlocked by a lifetime/records threshold and shown on the
+# profile. `field` indexes MetaStore.lifetime; `min` is the value that unlocks
+# it. The first entry has min 0, so a brand-new profile always has a title.
+# Purely a label — a title feeds nothing but the text that displays it.
+const TITLES := [
+	{"id": "rookie", "name": "Rookie", "field": "runs", "min": 0},
+	{"id": "survivor", "name": "Survivor", "field": "best_seconds", "min": 600},
+	{"id": "diver", "name": "Stage Diver", "field": "best_stage", "min": 5},
+	{"id": "abyssal", "name": "Ten Deep", "field": "best_stage", "min": 10},
+	{"id": "slayer", "name": "Boss Slayer", "field": "bosses", "min": 25},
+	{"id": "centurion", "name": "Centurion", "field": "kills", "min": 1000},
+	{"id": "veteran", "name": "Veteran", "field": "runs", "min": 100},
+]
+
 # =============================================================================
 # DROPS (6d)
 # =============================================================================

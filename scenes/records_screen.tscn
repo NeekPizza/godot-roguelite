@@ -25,6 +25,12 @@ theme_override_font_sizes/font_size = 32
 horizontal_alignment = 1
 text = "RECORDS"
 
+[node name="PlayerTitle" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.82, 0.25, 1)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "-"
+
 [node name="BestsHeading" type="Label" parent="Center/Panel"]
 theme_override_colors/font_color = Color(1, 0.28, 0.85, 1)
 theme_override_font_sizes/font_size = 16
