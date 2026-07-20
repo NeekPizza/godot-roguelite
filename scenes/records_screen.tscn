@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/records_screen.gd" id="1"]
+
+[node name="RecordsScreen" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.95)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(0.25, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+text = "RECORDS"
+
+[node name="BestsHeading" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.28, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "PERSONAL BESTS"
+
+[node name="Records" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 2
+
+[node name="LifetimeHeading" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.28, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "LIFETIME"
+
+[node name="Lifetime" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 2
+
+[node name="TableHeading" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(1, 0.28, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "BEST RUNS"
+
+[node name="Table" type="VBoxContainer" parent="Center/Panel"]
+theme_override_constants/separation = 2
+
+[node name="Empty" type="Label" parent="Center/Panel"]
+theme_override_colors/font_color = Color(0.62, 0.72, 0.88, 1)
+theme_override_font_sizes/font_size = 16
+text = "No runs yet — play one and it lands here."
+
+[node name="Back" type="Button" parent="Center/Panel"]
+custom_minimum_size = Vector2(0, 44)
+theme_override_font_sizes/font_size = 18
+text = "BACK"

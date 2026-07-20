@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/main_menu.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/settings_panel.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/meta_screen.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/records_screen.tscn" id="4"]
 
 [node name="MainMenu" type="Control"]
 anchor_right = 1.0
@@ -61,6 +62,11 @@ text = "ARCHIVE — PAST SEEDS"
 custom_minimum_size = Vector2(380, 42)
 theme_override_font_sizes/font_size = 20
 text = "UPGRADES"
+
+[node name="Records" type="Button" parent="Center/Root/Buttons"]
+custom_minimum_size = Vector2(380, 42)
+theme_override_font_sizes/font_size = 20
+text = "RECORDS"
 
 [node name="Settings" type="Button" parent="Center/Root/Buttons"]
 custom_minimum_size = Vector2(380, 42)
@@ -177,3 +183,5 @@ text = "Back"
 [node name="Settings" parent="." instance=ExtResource("2")]
 
 [node name="Meta" parent="." instance=ExtResource("3")]
+
+[node name="Records" parent="." instance=ExtResource("4")]

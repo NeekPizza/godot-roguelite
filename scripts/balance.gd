@@ -615,6 +615,34 @@ const SCORE_CEILING := 50_000_000
 const SCORE_HISTORY_MAX := 200
 const SCORE_TABLE_ROWS := 5
 
+## Lifetime records (8c). `id` is the field on a finished run, `field` is where
+## the best-ever value lives in the meta profile, `label` is what the run-over
+## banner shouts. Adding a record here surfaces it everywhere at once — the
+## banner, the records screen and the test all read this list.
+const META_RECORDS := [
+	{"id": "score", "field": "best_score", "label": "SCORE"},
+	{"id": "stage", "field": "best_stage", "label": "DEPTH"},
+	{"id": "seconds", "field": "best_seconds", "label": "SURVIVAL"},
+	{"id": "kills", "field": "best_kills", "label": "KILLS"},
+]
+
+## Running totals, shown on the records screen. `time` and `plain` pick the
+## formatter; nothing here feeds gameplay.
+const META_LIFETIME_ROWS := [
+	{"field": "runs", "label": "Runs played", "format": "plain"},
+	{"field": "ranked_runs", "label": "Ranked runs", "format": "plain"},
+	{"field": "seconds", "label": "Time survived", "format": "time"},
+	{"field": "kills", "label": "Enemies destroyed", "format": "plain"},
+	{"field": "bosses", "label": "Bosses felled", "format": "plain"},
+]
+
+## How many overall best runs the records screen lists.
+const RECORDS_TABLE_ROWS := 5
+
+## The personal-best sting, delayed so it does not collide with the death sound.
+const RECORD_STING_DELAY := 0.55
+const RECORD_STING_VOLUME := -4.0
+
 # =============================================================================
 # DROPS (6d)
 # =============================================================================

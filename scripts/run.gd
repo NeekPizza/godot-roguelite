@@ -1000,8 +1000,11 @@ func _end_run() -> void:
 	_state = State.OVER
 	get_tree().paused = true
 
-	_record_result()
-	_gameover_label.text = "YOU DIED\n\nREACHED  STAGE %d\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to replay   ·   ESC for menu" % [
+	var records := _record_result()
+	_gameover_label.text = ""
+	if not records.is_empty():
+		_gameover_label.text = "★  NEW PERSONAL BEST  —  %s  ★\n\n" % ", ".join(records)
+	_gameover_label.text += "YOU DIED\n\nREACHED  STAGE %d\nSURVIVED  %s\nSCORE  %d\n\nkills %d = %d\ntime %s  x%d = %d\nxp %d  x%d = %d\nbosses felled  %d\n\npress R to replay   ·   ESC for menu" % [
 		_stage, _format_time(_elapsed), _score(),
 		_kills, _kill_score,
 		_format_time(_elapsed), Score.PER_SECOND, int(_elapsed) * Score.PER_SECOND,
@@ -1013,19 +1016,34 @@ func _end_run() -> void:
 	_gameover_label.text += "\n\n%s" % _score_table_text()
 	_gameover_layer.show()
 	Sfx.play("run_over")
+	if not records.is_empty():
+		# Lands just after the death sting rather than on top of it, so the run
+		# still reads as ending before the celebration starts.
+		_play_record_sting.call_deferred()
 	if _quit_on_end:
 		_quit_cleanly.call_deferred()
 	print("[run] spawned by type: %s" % _type_counts)
 	print("[digest] %s" % _state_digest())
-	print("[run] over mode=%s date=%s stage=%d time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s" % [
+	print("[run] over mode=%s date=%s stage=%d time=%s score=%d kills=%d xp=%d level=%d bosses=%d plausible=%s records=%s" % [
 		RunConfig.mode_name(), _date_string, _stage,
 		_format_time(_elapsed), _score(), _kills, _xp_collected, _level,
-		_bosses_killed, Score.is_plausible(_score())])
+		_bosses_killed, Score.is_plausible(_score()),
+		",".join(records) if not records.is_empty() else "-"])
+
+
+## The tree is paused at run end, so this timer has to ignore that or it never
+## fires and the sting is silently dropped.
+func _play_record_sting() -> void:
+	var timer := get_tree().create_timer(Balance.RECORD_STING_DELAY, true, false, true)
+	await timer.timeout
+	Sfx.play("level_up", Balance.RECORD_STING_VOLUME)
 
 
 ## Persist the run. Scores are bounded before storage so a corrupted or edited
 ## value cannot poison the local table (and, in Phase 4, the Steam submission).
-func _record_result() -> void:
+##
+## Returns the labels of any records broken, for the run-over banner.
+func _record_result() -> Array:
 	var final_score := Score.bounded(_score())
 	SaveStore.record_score({
 		"date": _date_string,
@@ -1046,7 +1064,8 @@ func _record_result() -> void:
 		MetaStore.award_points(earned)
 		print("[meta] +%d points (stage %d)" % [earned, _stage])
 
-	MetaStore.record_run(_ranked, _stage, final_score, _kills, _bosses_killed)
+	return MetaStore.record_run(_ranked, _stage, final_score, _kills,
+		_bosses_killed, int(_elapsed))
 
 
 func _score_table_text() -> String:
